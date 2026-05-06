@@ -1,8 +1,14 @@
 import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hoot_path/onboarding_screen.dart';
 
 void main() {
-  runApp(DevicePreview(builder: (context) => HootApp(),));
+  if(kIsWeb){
+    runApp(DevicePreview(builder: (context) => HootApp(),));
+  }else{
+    runApp(const HootApp());
+  }
 }
 
 class HootApp extends StatelessWidget {
@@ -307,90 +313,95 @@ class HootAIMentorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        boxShadow: [BoxShadow(color: Colors.black,blurRadius: 3,offset: Offset(0, 4))],
-        color: const Color(0xFFEAF5E5),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: const [
-                    Icon(Icons.smart_toy, color: Color(0xFF007B3E), size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'HOOT AI MENTOR',
-                      style: TextStyle(
-                        color: Color(0xFF007B3E),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Center(
-              child: Stack(
-                alignment: Alignment.center,
+    return GestureDetector(
+      onTap: ()=>{
+        Navigator.push(context, MaterialPageRoute(builder:(context) => OnboardingScreen(),))
+      },
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          boxShadow: [BoxShadow(color: Colors.black,blurRadius: 3,offset: Offset(0, 4))],
+          color: const Color(0xFFEAF5E5),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: 80,
-                    height: 80,
-                    child: CircularProgressIndicator(
-                      value:
-                          0.75, // You can adjust this to match streak progression
-                      strokeWidth: 8,
-                      backgroundColor: Colors.white,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF67B521),
-                      ),
-                    ),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
+                  Row(
                     children: const [
-                      Icon(
-                        Icons.local_fire_department,
-                        color: Color(0xFF67B521),
-                        size: 24,
-                      ),
+                      Icon(Icons.smart_toy, color: Color(0xFF007B3E), size: 20),
+                      SizedBox(width: 8),
                       Text(
-                        '0',
+                        'HOOT AI MENTOR',
                         style: TextStyle(
-                          fontSize: 20,
+                          color: Color(0xFF007B3E),
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1B3B59),
-                        ),
-                      ),
-                      Text(
-                        'days',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF5A7184),
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+      
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
-          ),
-        ],
+            Expanded(
+              flex: 1,
+              child: Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: CircularProgressIndicator(
+                        value:
+                            0.75, // You can adjust this to match streak progression
+                        strokeWidth: 8,
+                        backgroundColor: Colors.white,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF67B521),
+                        ),
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(
+                          Icons.local_fire_department,
+                          color: Color(0xFF67B521),
+                          size: 24,
+                        ),
+                        Text(
+                          '7',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1B3B59),
+                          ),
+                        ),
+                        Text(
+                          'days',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF5A7184),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
