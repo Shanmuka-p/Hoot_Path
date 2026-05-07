@@ -3,7 +3,7 @@ import 'package:hoot_path/analytics_screen.dart';
 
 // ─── Color Constants ──────────────────────────────────────────────────────────
 const kGreen = Color(0xFF2E7D32);
-const kGrey  = Color(0xFFAAAAAA);
+const kGrey = Color(0xFFAAAAAA);
 
 // ─── Onboarding Screen ────────────────────────────────────────────────────────
 class OnboardingScreen extends StatefulWidget {
@@ -39,10 +39,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _skip() {
-    _controller.animateToPage(
-      _images.length - 1,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeInOut,
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
     );
   }
 
@@ -52,7 +51,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-
           // ── Full-screen swiping images ──────────────────────────────────
           PageView.builder(
             controller: _controller,
@@ -88,11 +86,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 20,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-
                     // Skip
                     GestureDetector(
                       onTap: _skip,
@@ -118,11 +118,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         return AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
                           curve: Curves.easeInOut,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: isActive ? 10 : 8,
-                          height: isActive ? 10 : 8,
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: isActive ? 30 : 7,
+                          height: 7,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(5),
                             color: isActive ? kGreen : kGrey,
                           ),
                         );
@@ -145,13 +145,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
                     ),
-
                   ],
                 ),
               ),
             ),
           ),
-
         ],
       ),
     );
