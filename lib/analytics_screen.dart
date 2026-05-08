@@ -1,353 +1,501 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:hoot_path/lsrw_api_service.dart.dart';
 import 'package:hoot_path/skill_detail_sheet.dart';
 
-// ─── App Theme Colors (matching HOOT app) ────────────────────────────────────
-const kAppGreen      = Color(0xFF008738); // primary brand green
-const kAppGreenBg    = Color(0xFFE6F4EC); // light green background
-const kInsightBg     = Color(0xFFEEF7F2);
-const kBlack         = Color(0xFF1A1A1A);
-const kTextGrey      = Color(0xFF757575);
-const kWhite         = Colors.white;
-const kScaffoldBg    = Color(0xFFF5F5F5);
+// ─── App Theme Colors (matching HOOT app) ─────────────────────────────────────
+const kAppGreen = Color(0xFF008738);
+const kAppGreenBg = Color(0xFFE8F5ED);
+const kBlack = Color(0xFF1A1A1A);
+const kTextGrey = Color(0xFF757575);
+const kWhite = Colors.white;
 
-// ─── LSRW Skill Colors ────────────────────────────────────────────────────────
-const kListeningColor = Color(0xFF008738); // green
-const kSpeakingColor  = Color(0xFFFFBB00); // yellow/amber
-const kReadingColor   = Color(0xFF72BD20); // lime green
-const kWritingColor   = Color(0xFF2196F3); // blue
+// ─── Hardcoded user (replace / pass via constructor as needed) ────────────────
+const kUserId = '66628e2f213ad0a228fedd06'; // TODO: pass from login/session
 
-// Skill bg tints
-const kListeningBg = Color(0xFFE6F4EC);
-const kSpeakingBg  = Color(0xFFFFF8E1);
-const kReadingBg   = Color(0xFFF2FAE6);
-const kWritingBg   = Color(0xFFE3F2FD);
-
-// ─── Analytics Screen ─────────────────────────────────────────────────────────
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
+
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  // ── State ──────────────────────────────────────────────────────────────────
+  bool _loading = true;
+  String? _error;
+
+  OverallLsrwData? _overallData;
+  IndividualLsrwData? _individualData;
+
+  late final LsrwApiService _api;
+
+  @override
+  void initState() {
+    super.initState();
+    _api = LsrwApiService(userId: kUserId);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        _api.fetchOverallData(),
+        _api.fetchIndividualData(),
+      ]);
+      setState(() {
+        _overallData = results[0] as OverallLsrwData;
+        _individualData = results[1] as IndividualLsrwData;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  String _statusLabel(double pct) {
+    if (pct >= 80) return 'Excellent';
+    if (pct >= 65) return 'Good';
+    if (pct >= 50) return 'Average';
+    return 'Needs Improvement';
+  }
+
+  Color _statusColor(double pct) {
+    if (pct >= 80) return const Color(0xFF008738);
+    if (pct >= 65) return const Color(0xFF4CAF50);
+    if (pct >= 50) return const Color(0xFFFFA726);
+    return const Color(0xFFEF5350);
+  }
+
+  String _insightText(OverallLsrwData data) {
+    // Find weakest skill
+    final skills = <String, double>{
+      'Listening': data.listening?.percentage ?? 0,
+      'Speaking': data.speaking?.percentage ?? 0,
+      'Reading': data.reading?.percentage ?? 0,
+      'Writing': data.writing?.percentage ?? 0,
+    };
+    final weakest =
+        skills.entries.reduce((a, b) => a.value < b.value ? a : b);
+    final strongest =
+        skills.entries.reduce((a, b) => a.value > b.value ? a : b);
+    return 'Your ${strongest.key} is your strongest skill (${strongest.value.toStringAsFixed(0)}%). '
+        'Focus more on ${weakest.key} (${weakest.value.toStringAsFixed(0)}%) to improve overall.';
+  }
+
+  void _openSkillSheet(String skill) {
+    if (_individualData == null) return;
+    final detail = _individualData!.detailFor(skill);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SkillDetailSheet(
+        skillName: skill,
+        skillDetail: detail,
+      ),
+    );
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kScaffoldBg,
-      body: SafeArea(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: _loading
+          ? _buildLoader()
+          : _error != null
+              ? _buildError()
+              : _buildContent(),
+    );
+  }
+
+  Widget _buildLoader() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: kAppGreen),
+          SizedBox(height: 16),
+          Text('Loading your analytics…',
+              style: TextStyle(color: kTextGrey, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _TopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _HelloCard(),
-                    const SizedBox(height: 16),
-                    _PerformanceCard(),
-                    const SizedBox(height: 16),
-                    _LearningPathCard(),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+            const Icon(Icons.wifi_off_rounded, size: 56, color: kTextGrey),
+            const SizedBox(height: 16),
+            const Text('Failed to load data',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: kBlack)),
+            const SizedBox(height: 8),
+            Text(_error ?? '',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: kTextGrey, fontSize: 13)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kAppGreen,
+                foregroundColor: kWhite,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
             ),
-            _ContinueButton(),
           ],
         ),
       ),
     );
   }
-}
 
-// ─── Top Bar ──────────────────────────────────────────────────────────────────
-class _TopBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'Dashboard',
+  Widget _buildContent() {
+    final overall = _overallData!;
+    final individual = _individualData!;
+    final overallPct = individual.userPercentage;
+
+    return CustomScrollView(
+      slivers: [
+        // ── App Bar ──────────────────────────────────────────────────────────
+        SliverAppBar(
+          expandedHeight: 0,
+          floating: true,
+          backgroundColor: kWhite,
+          elevation: 0,
+          title: const Text(
+            'Analytics',
             style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: kBlack,
+                color: kBlack, fontWeight: FontWeight.bold, fontSize: 20),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh, color: kAppGreen),
+              onPressed: _loadData,
+              tooltip: 'Refresh',
+            ),
+          ],
+        ),
+
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Donut Card ───────────────────────────────────────────────
+                _DonutCard(
+                  overallPct: overallPct,
+                  statusLabel: _statusLabel(overallPct),
+                  statusColor: _statusColor(overallPct),
+                  listeningPct: overall.listening?.percentage ?? 0,
+                  speakingPct: overall.speaking?.percentage ?? 0,
+                  readingPct: overall.reading?.percentage ?? 0,
+                  writingPct: overall.writing?.percentage ?? 0,
+                ),
+
+                const SizedBox(height: 20),
+
+                // ── Insight Card ─────────────────────────────────────────────
+                _InsightCard(text: _insightText(overall)),
+
+                const SizedBox(height: 20),
+
+                // ── LSRW Skill Rows ──────────────────────────────────────────
+                const Text(
+                  'Skills Breakdown',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: kBlack),
+                ),
+                const SizedBox(height: 12),
+
+                _SkillRow(
+                  icon: Icons.headphones_rounded,
+                  color: const Color(0xFF5B6CF9),
+                  label: 'Listening',
+                  pct: overall.listening?.percentage ?? 0,
+                  attempts: individual.listening.noAttempts,
+                  onTap: () => _openSkillSheet('listening'),
+                ),
+                const SizedBox(height: 10),
+                _SkillRow(
+                  icon: Icons.mic_rounded,
+                  color: const Color(0xFFFF6B6B),
+                  label: 'Speaking',
+                  pct: overall.speaking?.percentage ?? 0,
+                  attempts: individual.speaking.noAttempts,
+                  onTap: () => _openSkillSheet('speaking'),
+                ),
+                const SizedBox(height: 10),
+                _SkillRow(
+                  icon: Icons.menu_book_rounded,
+                  color: const Color(0xFF26C6DA),
+                  label: 'Reading',
+                  pct: overall.reading?.percentage ?? 0,
+                  attempts: individual.reading.noAttempts,
+                  onTap: () => _openSkillSheet('reading'),
+                ),
+                const SizedBox(height: 10),
+                _SkillRow(
+                  icon: Icons.edit_rounded,
+                  color: const Color(0xFFFFB300),
+                  label: 'Writing',
+                  pct: overall.writing?.percentage ?? 0,
+                  attempts: individual.writing.noAttempts,
+                  onTap: () => _openSkillSheet('writing'),
+                ),
+
+                const SizedBox(height: 20),
+
+                // ── Total Attempts ───────────────────────────────────────────
+                _TotalAttemptsCard(total: individual.totalAttempts),
+              ],
             ),
           ),
-          Row(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: kWhite,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.notifications_outlined,
-                        color: kBlack, size: 20),
-                  ),
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 10),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: kAppGreen,
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    'S',
-                    style: TextStyle(
-                      color: kWhite,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-// ─── Hello Card ───────────────────────────────────────────────────────────────
-class _HelloCard extends StatelessWidget {
+// ─── Donut Card Widget ────────────────────────────────────────────────────────
+
+class _DonutCard extends StatelessWidget {
+  final double overallPct;
+  final String statusLabel;
+  final Color statusColor;
+  final double listeningPct;
+  final double speakingPct;
+  final double readingPct;
+  final double writingPct;
+
+  const _DonutCard({
+    required this.overallPct,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.listeningPct,
+    required this.speakingPct,
+    required this.readingPct,
+    required this.writingPct,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: kWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 4))
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Hello, Shannu! 👋',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: kBlack,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Keep practicing and improve every day.',
-                  style: TextStyle(fontSize: 13, color: kTextGrey),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: kAppGreenBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          SizedBox(
+            height: 200,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CustomPaint(painter: _BarChartIconPainter()),
+                CustomPaint(
+                  size: const Size(200, 200),
+                  painter: _DonutPainter(
+                    listening: listeningPct,
+                    speaking: speakingPct,
+                    reading: readingPct,
+                    writing: writingPct,
+                  ),
                 ),
-                const SizedBox(width: 8),
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('Level',
-                        style: TextStyle(fontSize: 11, color: kTextGrey)),
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      'Intermediate',
+                      '${overallPct.toStringAsFixed(0)}%',
+                      style: const TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.bold,
+                          color: kBlack),
+                    ),
+                    Text(
+                      statusLabel,
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: kBlack,
-                      ),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor),
                     ),
                   ],
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _DonutLegend(
+                  color: const Color(0xFF5B6CF9),
+                  label: 'L',
+                  pct: listeningPct),
+              _DonutLegend(
+                  color: const Color(0xFFFF6B6B),
+                  label: 'S',
+                  pct: speakingPct),
+              _DonutLegend(
+                  color: const Color(0xFF26C6DA),
+                  label: 'R',
+                  pct: readingPct),
+              _DonutLegend(
+                  color: const Color(0xFFFFB300),
+                  label: 'W',
+                  pct: writingPct),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-// ─── Performance Card ─────────────────────────────────────────────────────────
-class _PerformanceCard extends StatelessWidget {
+class _DonutLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+  final double pct;
+
+  const _DonutLegend(
+      {required this.color, required this.label, required this.pct});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+            width: 10,
+            height: 10,
+            decoration:
+                BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(
+          '$label  ${pct.toStringAsFixed(0)}%',
+          style: const TextStyle(fontSize: 12, color: kTextGrey),
+        ),
+      ],
+    );
+  }
+}
+
+class _DonutPainter extends CustomPainter {
+  final double listening;
+  final double speaking;
+  final double reading;
+  final double writing;
+
+  _DonutPainter({
+    required this.listening,
+    required this.speaking,
+    required this.reading,
+    required this.writing,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = listening + speaking + reading + writing;
+    if (total == 0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 10;
+    const strokeWidth = 28.0;
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+
+    final colors = [
+      const Color(0xFF5B6CF9),
+      const Color(0xFFFF6B6B),
+      const Color(0xFF26C6DA),
+      const Color(0xFFFFB300),
+    ];
+    final values = [listening, speaking, reading, writing];
+
+    double startAngle = -math.pi / 2;
+    const gap = 0.04; // radians gap between segments
+
+    for (int i = 0; i < values.length; i++) {
+      final sweep = (values[i] / total) * (2 * math.pi) - gap;
+      paint.color = colors[i];
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweep,
+        false,
+        paint,
+      );
+      startAngle += sweep + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DonutPainter old) =>
+      old.listening != listening ||
+      old.speaking != speaking ||
+      old.reading != reading ||
+      old.writing != writing;
+}
+
+// ─── Insight Card ─────────────────────────────────────────────────────────────
+
+class _InsightCard extends StatelessWidget {
+  final String text;
+  const _InsightCard({required this.text});
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kWhite,
+        color: kAppGreenBg,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: kAppGreen.withOpacity(0.25)),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Overall LSRW Performance',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: kBlack,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              // Donut chart
-              SizedBox(
-                width: 140,
-                height: 140,
-                child: CustomPaint(painter: _DonutChartPainter()),
-              ),
-              const SizedBox(width: 16),
-              // Skills list
-              Expanded(
-                child: Builder(builder: (context) {
-                  return Column(
-                    children: [
-                      _SkillRow(
-                        icon: Icons.headphones_outlined,
-                        iconColor: kListeningColor,
-                        iconBg: kListeningBg,
-                        label: 'Listening',
-                        percent: 70,
-                        onTap: () => showSkillBottomSheet(context, listeningDetail),
-                      ),
-                      const SizedBox(height: 14),
-                      _SkillRow(
-                        icon: Icons.mic_outlined,
-                        iconColor: kSpeakingColor,
-                        iconBg: kSpeakingBg,
-                        label: 'Speaking',
-                        percent: 45,
-                        onTap: () => showSkillBottomSheet(context, speakingDetail),
-                      ),
-                      const SizedBox(height: 14),
-                      _SkillRow(
-                        icon: Icons.menu_book_outlined,
-                        iconColor: kReadingColor,
-                        iconBg: kReadingBg,
-                        label: 'Reading',
-                        percent: 75,
-                        onTap: () => showSkillBottomSheet(context, readingDetail),
-                      ),
-                      const SizedBox(height: 14),
-                      _SkillRow(
-                        icon: Icons.edit_outlined,
-                        iconColor: kWritingColor,
-                        iconBg: kWritingBg,
-                        label: 'Writing',
-                        percent: 35,
-                        onTap: () => showSkillBottomSheet(context, writingDetail),
-                      ),
-                    ],
-                  );
-                }),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          // Insight box
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: kInsightBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.lightbulb_outline, color: kAppGreen, size: 22),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Insight',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: kBlack,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Focus more on Speaking and Writing to improve your overall communication skills.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: kTextGrey,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: CustomPaint(painter: _TargetIconPainter()),
-                ),
-              ],
+          const Icon(Icons.lightbulb_outline_rounded,
+              color: kAppGreen, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                  fontSize: 13, color: kBlack, height: 1.5),
             ),
           ),
         ],
@@ -357,393 +505,146 @@ class _PerformanceCard extends StatelessWidget {
 }
 
 // ─── Skill Row ────────────────────────────────────────────────────────────────
+
 class _SkillRow extends StatelessWidget {
   final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
+  final Color color;
   final String label;
-  final int percent;
-  final VoidCallback? onTap;
+  final double pct;
+  final int attempts;
+  final VoidCallback onTap;
 
   const _SkillRow({
     required this.icon,
-    required this.iconColor,
-    required this.iconBg,
+    required this.color,
     required this.label,
-    required this.percent,
-    this.onTap,
+    required this.pct,
+    required this.attempts,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: iconBg,
-              shape: BoxShape.circle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: kWhite,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: kBlack)),
+                      Text('$attempts attempts',
+                          style: const TextStyle(
+                              fontSize: 11, color: kTextGrey)),
+                    ],
+                  ),
+                ),
+                Text(
+                  '${pct.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: color),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right_rounded,
+                    color: kTextGrey, size: 18),
+              ],
             ),
-            child: Icon(icon, color: iconColor, size: 16),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: kBlack,
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: (pct.clamp(0, 100)) / 100,
+                minHeight: 6,
+                backgroundColor: color.withOpacity(0.12),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
             ),
-          ),
-          Text(
-            '$percent%',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: iconColor,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, color: kTextGrey, size: 18),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─── Learning Path Card ───────────────────────────────────────────────────────
-class _LearningPathCard extends StatelessWidget {
+// ─── Total Attempts Card ──────────────────────────────────────────────────────
+
+class _TotalAttemptsCard extends StatelessWidget {
+  final int total;
+  const _TotalAttemptsCard({required this.total});
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: kWhite,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Flexible(
-                child: Text(
-                  'Your Learning Path',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: kBlack,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              SizedBox(width: 8),
-              Text(
-                'Recommended for you',
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: kAppGreenBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.bar_chart_rounded,
+                color: kAppGreen, size: 22),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Text('Total Attempts',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: kAppGreen,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: kBlack)),
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _PathStep(
-                icon: Icons.mic_outlined,
-                iconColor: kSpeakingColor,
-                iconBg: kSpeakingBg,
-                title: 'Speaking',
-                subtitle: 'Basics',
-                number: '7',
-              ),
-              _PathArrow(),
-              _PathStep(
-                icon: Icons.edit_outlined,
-                iconColor: kWritingColor,
-                iconBg: kWritingBg,
-                title: 'Writing',
-                subtitle: 'Email Writing',
-                number: '7',
-              ),
-              _PathArrow(),
-              _PathStep(
-                icon: Icons.headphones_outlined,
-                iconColor: kListeningColor,
-                iconBg: kListeningBg,
-                title: 'Listening',
-                subtitle: 'Conversations',
-                number: '7',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PathStep extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBg;
-  final String title;
-  final String subtitle;
-  final String number;
-
-  const _PathStep({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBg,
-    required this.title,
-    required this.subtitle,
-    required this.number,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 80,
-      child: Column(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: iconColor, size: 26),
-              ),
-              Positioned(
-                bottom: -4,
-                right: -4,
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: kAppGreen,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: kWhite, width: 1.5),
-                  ),
-                  child: Center(
-                    child: Text(
-                      number,
-                      style: const TextStyle(
-                        color: kWhite,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           Text(
-            title,
-            textAlign: TextAlign.center,
+            '$total',
             style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: kBlack,
-            ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 11, color: kTextGrey),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: kAppGreen),
           ),
         ],
       ),
     );
   }
-}
-
-class _PathArrow extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(bottom: 24, left: 4, right: 4),
-      child: Icon(Icons.arrow_forward, color: kTextGrey, size: 18),
-    );
-  }
-}
-
-// ─── Continue Button ──────────────────────────────────────────────────────────
-class _ContinueButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: SizedBox(
-        width: double.infinity,
-        height: 54,
-        child: ElevatedButton(
-          onPressed: () {},
-          style: ElevatedButton.styleFrom(
-            backgroundColor: kAppGreen,
-            foregroundColor: kWhite,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-            elevation: 0,
-          ),
-          child: const Text(
-            'Continue Learning',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Custom Painters ──────────────────────────────────────────────────────────
-class _DonutChartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final radius = size.width / 2 - 10;
-    const strokeWidth = 18.0;
-    final rect = Rect.fromCircle(center: Offset(cx, cy), radius: radius);
-
-    final segments = [
-      (kListeningColor, 0.28), // Listening
-      (kSpeakingColor,  0.18), // Speaking
-      (kReadingColor,   0.30), // Reading
-      (kWritingColor,   0.14), // Writing
-      (const Color(0xFFE0E0E0), 0.10), // remainder
-    ];
-
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
-
-    double startAngle = -math.pi / 2;
-    const gap = 0.04;
-    for (final seg in segments) {
-      final sweep = seg.$2 * math.pi * 2 - gap;
-      paint.color = seg.$1;
-      canvas.drawArc(rect, startAngle + gap / 2, sweep, false, paint);
-      startAngle += seg.$2 * math.pi * 2;
-    }
-
-    // Center labels
-    final overallTP = TextPainter(
-      text: const TextSpan(
-          text: 'Overall',
-          style: TextStyle(color: kTextGrey, fontSize: 11)),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    overallTP.paint(canvas, Offset(cx - overallTP.width / 2, cy - 26));
-
-    final pctTP = TextPainter(
-      text: const TextSpan(
-        text: '60%',
-        style: TextStyle(color: kBlack, fontSize: 22, fontWeight: FontWeight.w800),
-      ),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    pctTP.paint(canvas, Offset(cx - pctTP.width / 2, cy - 10));
-
-    final goodTP = TextPainter(
-      text: const TextSpan(
-        text: 'Good',
-        style: TextStyle(color: kAppGreen, fontSize: 13, fontWeight: FontWeight.w600),
-      ),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    goodTP.paint(canvas, Offset(cx - goodTP.width / 2, cy + 14));
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _BarChartIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = kAppGreen
-      ..style = PaintingStyle.fill;
-    final bars = [0.4, 0.65, 1.0, 0.75];
-    final barW = size.width / (bars.length * 2 - 1);
-    for (int i = 0; i < bars.length; i++) {
-      final h = size.height * bars[i];
-      final x = i * barW * 2;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, size.height - h, barW, h),
-          const Radius.circular(2),
-        ),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _TargetIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final stroke = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(Offset(cx, cy), 18, stroke);
-    canvas.drawCircle(Offset(cx, cy), 12, stroke);
-    canvas.drawCircle(Offset(cx, cy), 5,
-        Paint()..color = Colors.red..style = PaintingStyle.fill);
-    final arrow = Paint()
-      ..color = const Color(0xFFFF7043)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(cx + 8, cy - 14), Offset(cx + 18, cy - 22), arrow);
-    canvas.drawLine(Offset(cx + 18, cy - 22), Offset(cx + 12, cy - 22), arrow);
-    canvas.drawLine(Offset(cx + 18, cy - 22), Offset(cx + 18, cy - 16), arrow);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

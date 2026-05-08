@@ -1,209 +1,272 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:hoot_path/lsrw_api_service.dart.dart';
 
 // ─── App Theme Colors ─────────────────────────────────────────────────────────
-const kAppGreen   = Color(0xFF008738);
-const kBlack      = Color(0xFF1A1A1A);
-const kTextGrey   = Color(0xFF757575);
-const kWhite      = Colors.white;
+const kAppGreen = Color(0xFF008738);
+const kAppGreenBg = Color(0xFFE8F5ED);
+const kBlack = Color(0xFF1A1A1A);
+const kTextGrey = Color(0xFF757575);
+const kWhite = Colors.white;
 
-// ─── LSRW Skill Colors ────────────────────────────────────────────────────────
-const kListeningColor = Color(0xFF008738); // green
-const kSpeakingColor  = Color(0xFFFFBB00); // yellow
-const kReadingColor   = Color(0xFF72BD20); // lime green
-const kWritingColor   = Color(0xFF2196F3); // blue
+// ─── Skill color map ──────────────────────────────────────────────────────────
+const _skillColors = {
+  'listening': Color(0xFF5B6CF9),
+  'speaking': Color(0xFFFF6B6B),
+  'reading': Color(0xFF26C6DA),
+  'writing': Color(0xFFFFB300),
+};
 
-const kListeningBg = Color(0xFFE6F4EC);
-const kSpeakingBg  = Color(0xFFFFF8E1);
-const kReadingBg   = Color(0xFFF2FAE6);
-const kWritingBg   = Color(0xFFE3F2FD);
+const _skillIcons = {
+  'listening': Icons.headphones_rounded,
+  'speaking': Icons.mic_rounded,
+  'reading': Icons.menu_book_rounded,
+  'writing': Icons.edit_rounded,
+};
 
-// ─── Models ───────────────────────────────────────────────────────────────────
-class SkillDetail {
-  final String title;
-  final Color color;
-  final Color bgColor;
-  final IconData icon;
-  final int overall;
-  final String status;
-  final Color statusColor;
-  final List<SubSkill> subSkills;
-  final String tip;
+// ─── SkillDetailSheet ─────────────────────────────────────────────────────────
 
-  const SkillDetail({
-    required this.title,
-    required this.color,
-    required this.bgColor,
-    required this.icon,
-    required this.overall,
-    required this.status,
-    required this.statusColor,
-    required this.subSkills,
-    required this.tip,
+class SkillDetailSheet extends StatelessWidget {
+  final String skillName; // e.g. 'listening'
+  final SkillDetail skillDetail;
+
+  const SkillDetailSheet({
+    super.key,
+    required this.skillName,
+    required this.skillDetail,
   });
-}
 
-class SubSkill {
-  final String name;
-  final IconData icon;
-  final int percent;
-  final Color barColor;
+  String get _displayName =>
+      skillName[0].toUpperCase() + skillName.substring(1);
 
-  const SubSkill({
-    required this.name,
-    required this.icon,
-    required this.percent,
-    required this.barColor,
-  });
-}
+  Color get _color => _skillColors[skillName.toLowerCase()] ?? kAppGreen;
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-final listeningDetail = SkillDetail(
-  title: 'Listening',
-  color: kListeningColor,
-  bgColor: kListeningBg,
-  icon: Icons.headphones_outlined,
-  overall: 70,
-  status: 'Good',
-  statusColor: kListeningColor,
-  tip: 'Great job! Try listening to advanced conversations.',
-  subSkills: const [
-    SubSkill(name: 'Comprehension', icon: Icons.psychology_outlined,         percent: 75, barColor: kListeningColor),
-    SubSkill(name: 'Focus',         icon: Icons.center_focus_strong_outlined, percent: 70, barColor: kListeningColor),
-    SubSkill(name: 'Vocabulary',    icon: Icons.abc_outlined,                 percent: 65, barColor: kListeningColor),
-    SubSkill(name: 'Detail Recall', icon: Icons.bookmark_outline,             percent: 70, barColor: kListeningColor),
-    SubSkill(name: 'Inference',     icon: Icons.lightbulb_outline,            percent: 70, barColor: kListeningColor),
-  ],
-);
+  IconData get _icon =>
+      _skillIcons[skillName.toLowerCase()] ?? Icons.star_rounded;
 
-final speakingDetail = SkillDetail(
-  title: 'Speaking',
-  color: kSpeakingColor,
-  bgColor: kSpeakingBg,
-  icon: Icons.mic_outlined,
-  overall: 45,
-  status: 'Needs Improvement',
-  statusColor: Colors.orange,
-  tip: 'Speak slowly and clearly. Practice conversations every day.',
-  subSkills: const [
-    SubSkill(name: 'Pronunciation', icon: Icons.record_voice_over_outlined, percent: 40, barColor: kSpeakingColor),
-    SubSkill(name: 'Fluency',       icon: Icons.speed_outlined,             percent: 45, barColor: kSpeakingColor),
-    SubSkill(name: 'Grammar',       icon: Icons.spellcheck_outlined,        percent: 50, barColor: kSpeakingColor),
-    SubSkill(name: 'Confidence',    icon: Icons.emoji_emotions_outlined,    percent: 45, barColor: kSpeakingColor),
-    SubSkill(name: 'Vocabulary',    icon: Icons.abc_outlined,               percent: 50, barColor: kSpeakingColor),
-  ],
-);
+  String _statusLabel(double pct) {
+    if (pct >= 80) return 'Excellent';
+    if (pct >= 65) return 'Good';
+    if (pct >= 50) return 'Average';
+    return 'Needs Improvement';
+  }
 
-final readingDetail = SkillDetail(
-  title: 'Reading',
-  color: kReadingColor,
-  bgColor: kReadingBg,
-  icon: Icons.menu_book_outlined,
-  overall: 75,
-  status: 'Good',
-  statusColor: kReadingColor,
-  tip: 'Excellent! Keep reading and try complex articles.',
-  subSkills: const [
-    SubSkill(name: 'Speed',         icon: Icons.timer_outlined,         percent: 70, barColor: kReadingColor),
-    SubSkill(name: 'Comprehension', icon: Icons.psychology_outlined,    percent: 80, barColor: kReadingColor),
-    SubSkill(name: 'Vocabulary',    icon: Icons.abc_outlined,           percent: 75, barColor: kReadingColor),
-    SubSkill(name: 'Accuracy',      icon: Icons.check_circle_outline,   percent: 75, barColor: kReadingColor),
-    SubSkill(name: 'Inference',     icon: Icons.lightbulb_outline,      percent: 70, barColor: kReadingColor),
-  ],
-);
+  Color _statusColor(double pct) {
+    if (pct >= 80) return const Color(0xFF008738);
+    if (pct >= 65) return const Color(0xFF4CAF50);
+    if (pct >= 50) return const Color(0xFFFFA726);
+    return const Color(0xFFEF5350);
+  }
 
-final writingDetail = SkillDetail(
-  title: 'Writing',
-  color: kWritingColor,
-  bgColor: kWritingBg,
-  icon: Icons.edit_outlined,
-  overall: 35,
-  status: 'Needs Improvement',
-  statusColor: Colors.orange,
-  tip: 'Practice email writing daily to improve your professional communication.',
-  subSkills: const [
-    SubSkill(name: 'Email Writing',     icon: Icons.email_outlined,       percent: 30, barColor: kWritingColor),
-    SubSkill(name: 'Paragraph Writing', icon: Icons.article_outlined,     percent: 40, barColor: kWritingColor),
-    SubSkill(name: 'Essay Writing',     icon: Icons.description_outlined, percent: 35, barColor: kWritingColor),
-    SubSkill(name: 'Grammar',           icon: Icons.spellcheck_outlined,  percent: 45, barColor: kWritingColor),
-    SubSkill(name: 'Vocabulary Usage',  icon: Icons.abc_outlined,         percent: 50, barColor: kWritingColor),
-  ],
-);
+  String _complexityLabel(String complexity) {
+    switch (complexity.toLowerCase()) {
+      case 'easy':
+        return 'Easy';
+      case 'medium':
+        return 'Medium';
+      case 'hard':
+        return 'Hard';
+      default:
+        return complexity;
+    }
+  }
 
-// ─── Show Helper ─────────────────────────────────────────────────────────────
-void showSkillBottomSheet(BuildContext context, SkillDetail detail) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    enableDrag: true,
-    builder: (_) => _SkillBottomSheet(detail: detail),
-  );
-}
+  Color _complexityColor(String complexity) {
+    switch (complexity.toLowerCase()) {
+      case 'easy':
+        return const Color(0xFF4CAF50);
+      case 'medium':
+        return const Color(0xFFFFA726);
+      case 'hard':
+        return const Color(0xFFEF5350);
+      default:
+        return kTextGrey;
+    }
+  }
 
-// ─── Bottom Sheet ─────────────────────────────────────────────────────────────
-class _SkillBottomSheet extends StatefulWidget {
-  final SkillDetail detail;
-  const _SkillBottomSheet({required this.detail});
-
-  @override
-  State<_SkillBottomSheet> createState() => _SkillBottomSheetState();
-}
-
-class _SkillBottomSheetState extends State<_SkillBottomSheet> {
-  final DraggableScrollableController _controller =
-      DraggableScrollableController();
+  String _tipFor(double pct) {
+    if (pct >= 80) {
+      return 'Outstanding performance! Keep up the great work and try harder modules to push further.';
+    } else if (pct >= 65) {
+      return 'Good progress! Focus on the medium and hard modules to boost your score higher.';
+    } else if (pct >= 50) {
+      return 'You\'re on the right track. Revisit easy modules and practice consistently to improve.';
+    } else {
+      return 'This area needs more attention. Start with the easy modules and gradually move up.';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final d = widget.detail;
+    final pct = skillDetail.percentage;
+    final status = _statusLabel(pct);
+    final statusColor = _statusColor(pct);
 
     return DraggableScrollableSheet(
-      controller: _controller,
-      initialChildSize: 0.75,
+      initialChildSize: 0.88,
       minChildSize: 0.5,
-      maxChildSize: 1.0,
-      snap: true,
-      snapSizes: const [0.75, 1.0],
-      builder: (context, scrollController) {
+      maxChildSize: 0.95,
+      builder: (_, scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: Color(0xFFF8F8F8),
+            color: kWhite,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             children: [
-              // Drag handle
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
+              // ── Handle ──────────────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 4),
                 child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
+
+              // ── Header ──────────────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(_icon, color: _color, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$_displayName Skills',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: kBlack,
+                          ),
+                        ),
+                        Text(
+                          '${skillDetail.noAttempts} total attempts',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: kTextGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: kTextGrey,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
               Expanded(
                 child: ListView(
                   controller: scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                   children: [
-                    _SheetHeader(d: d),
+                    // ── Gauge ────────────────────────────────────────────────
+                    Center(
+                      child: _GaugeWidget(
+                        percentage: pct,
+                        color: _color,
+                        statusLabel: status,
+                        statusColor: statusColor,
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ── Tip ──────────────────────────────────────────────────
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: kAppGreenBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: kAppGreen.withOpacity(0.25)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.tips_and_updates_outlined,
+                            color: kAppGreen,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _tipFor(pct),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: kBlack,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                     const SizedBox(height: 20),
-                    _GaugeCard(d: d),
-                    const SizedBox(height: 16),
-                    _SubSkillsCard(d: d),
-                    const SizedBox(height: 16),
-                    _TipCard(d: d),
-                    const SizedBox(height: 24),
+
+                    // ── Module Breakdown ─────────────────────────────────────
+                    const Text(
+                      'Module Breakdown',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: kBlack,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (skillDetail.records.isEmpty)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            'No module data available.',
+                            style: TextStyle(color: kTextGrey),
+                          ),
+                        ),
+                      )
+                    else
+                      ...skillDetail.records.map(
+                        (r) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _ModuleCard(
+                            record: r,
+                            skillColor: _color,
+                            complexityColor: _complexityColor(r.complexity),
+                            complexityLabel: _complexityLabel(r.complexity),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -215,354 +278,257 @@ class _SkillBottomSheetState extends State<_SkillBottomSheet> {
   }
 }
 
-// ─── Sheet Header ─────────────────────────────────────────────────────────────
-class _SheetHeader extends StatelessWidget {
-  final SkillDetail d;
-  const _SheetHeader({required this.d});
+// ─── Gauge Widget ─────────────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: const Icon(Icons.arrow_back, color: kBlack, size: 22),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          '${d.title} Details',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: kBlack,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Gauge Card ───────────────────────────────────────────────────────────────
-class _GaugeCard extends StatelessWidget {
-  final SkillDetail d;
-  const _GaugeCard({required this.d});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: kWhite,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Icon + title + status row
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: d.bgColor,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(d.icon, color: d.color, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                d.title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: kBlack,
-                ),
-              ),
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${d.overall}%',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: d.color,
-                    ),
-                  ),
-                  Text(
-                    d.status,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: d.statusColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Performance Breakdown',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: kBlack,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Semicircle gauge
-          SizedBox(
-            width: 220,
-            height: 120,
-            child: CustomPaint(
-              painter: _GaugePainter(
-                percent: d.overall / 100,
-                color: d.color,
-                bgColor: d.bgColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Sub Skills Card ──────────────────────────────────────────────────────────
-class _SubSkillsCard extends StatelessWidget {
-  final SkillDetail d;
-  const _SubSkillsCard({required this.d});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: kWhite,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: d.subSkills.map((s) => _SubSkillRow(skill: s)).toList(),
-      ),
-    );
-  }
-}
-
-class _SubSkillRow extends StatelessWidget {
-  final SubSkill skill;
-  const _SubSkillRow({required this.skill});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: skill.barColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(skill.icon, color: skill.barColor, size: 17),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  skill.name,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: kBlack,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: skill.percent / 100,
-                    minHeight: 5,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: AlwaysStoppedAnimation(skill.barColor),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            '${skill.percent}%',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: skill.barColor,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, color: kTextGrey, size: 18),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Tip Card ─────────────────────────────────────────────────────────────────
-class _TipCard extends StatelessWidget {
-  final SkillDetail d;
-  const _TipCard({required this.d});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: d.bgColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.lightbulb_outline, color: d.color, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Tip',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: kBlack,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  d.tip,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: kTextGrey,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Gauge Painter ────────────────────────────────────────────────────────────
-class _GaugePainter extends CustomPainter {
-  final double percent;
+class _GaugeWidget extends StatelessWidget {
+  final double percentage;
   final Color color;
-  final Color bgColor;
+  final String statusLabel;
+  final Color statusColor;
 
-  const _GaugePainter({
-    required this.percent,
+  const _GaugeWidget({
+    required this.percentage,
     required this.color,
-    required this.bgColor,
+    required this.statusLabel,
+    required this.statusColor,
   });
 
   @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 200,
+      height: 130,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(200, 130),
+            painter: _GaugePainter(
+              percentage: percentage.clamp(0, 100),
+              color: color,
+            ),
+          ),
+          Positioned(
+            bottom: 10,
+            child: Column(
+              children: [
+                Text(
+                  '${percentage.toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: kBlack,
+                  ),
+                ),
+                Text(
+                  statusLabel,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GaugePainter extends CustomPainter {
+  final double percentage;
+  final Color color;
+
+  _GaugePainter({required this.percentage, required this.color});
+
+  @override
   void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height - 10;
-    final radius = size.width / 2 - 14;
-    const strokeW = 20.0;
-    final rect = Rect.fromCircle(center: Offset(cx, cy), radius: radius);
+    final center = Offset(size.width / 2, size.height - 10);
+    final radius = size.width / 2 - 12;
+    const strokeWidth = 22.0;
 
     // Background arc
+    final bgPaint = Paint()
+      ..color = Colors.grey.shade200
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
     canvas.drawArc(
-      rect,
+      Rect.fromCircle(center: center, radius: radius),
       math.pi,
       math.pi,
       false,
-      Paint()
-        ..color = Colors.grey.shade200
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeW
-        ..strokeCap = StrokeCap.round,
+      bgPaint,
     );
 
-    // Filled arc
+    // Foreground arc
+    final fgPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final sweep = (percentage / 100) * math.pi;
     canvas.drawArc(
-      rect,
+      Rect.fromCircle(center: center, radius: radius),
       math.pi,
-      math.pi * percent,
+      sweep,
       false,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeW
-        ..strokeCap = StrokeCap.round,
+      fgPaint,
     );
-
-    // 0% label
-    final tp0 = TextPainter(
-      text: TextSpan(
-          text: '0%',
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp0.paint(canvas, Offset(2, cy + 8));
-
-    // 100% label
-    final tp100 = TextPainter(
-      text: TextSpan(
-          text: '100%',
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp100.paint(canvas, Offset(size.width - tp100.width - 2, cy + 8));
-
-    // Percent value
-    final pctTP = TextPainter(
-      text: TextSpan(
-        text: '${(percent * 100).round()}%',
-        style: TextStyle(
-            color: color, fontSize: 28, fontWeight: FontWeight.w800),
-      ),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    )..layout();
-    pctTP.paint(canvas, Offset(cx - pctTP.width / 2, cy - 40));
-
-    // "Overall" label
-    final ovTP = TextPainter(
-      text: TextSpan(
-          text: 'Overall',
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    ovTP.paint(canvas, Offset(cx - ovTP.width / 2, cy - 16));
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(_GaugePainter old) => old.percentage != percentage;
+}
+
+// ─── Module Card ──────────────────────────────────────────────────────────────
+
+class _ModuleCard extends StatelessWidget {
+  final ModuleRecord record;
+  final Color skillColor;
+  final Color complexityColor;
+  final String complexityLabel;
+
+  const _ModuleCard({
+    required this.record,
+    required this.skillColor,
+    required this.complexityColor,
+    required this.complexityLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = record.percentage.clamp(0.0, 100.0);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: kWhite,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Module icon from URL
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: record.moduleIcon.isNotEmpty
+                    ? Image.network(
+                        record.moduleIcon,
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: skillColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.extension_rounded,
+                            color: skillColor,
+                            size: 18,
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: skillColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.extension_rounded,
+                          color: skillColor,
+                          size: 18,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      record.moduleName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: kBlack,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: complexityColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            complexityLabel,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: complexityColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${record.count} attempts',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: kTextGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${pct.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: skillColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: pct / 100,
+              minHeight: 5,
+              backgroundColor: skillColor.withOpacity(0.12),
+              valueColor: AlwaysStoppedAnimation<Color>(skillColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
