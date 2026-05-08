@@ -1,18 +1,22 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 // ─── API Endpoints ─────────────────────────────────────────────────────────
-// On Web  → calls local proxy (localhost:8080) to bypass CORS
-// On Device → calls real API directly
-const String _realBase = 'https://aihoot.in:5001/api';
-const String _proxyBase = 'http://localhost:8080/api';
+const String _base = 'https://aihoot.in:5001/api';
 
-String get _base => kIsWeb ? _proxyBase : _realBase;
+const String kOverallLsrwApi    = '$_base/get-attempts-duration-by-user-id';
+const String kIndividualLsrwApi = '$_base/get-individual-module-attempts-by-user-id';
 
-String get kOverallLsrwApi => '$_base/get-attempts-duration-by-user-id';
-String get kIndividualLsrwApi =>
-    '$_base/get-individual-module-attempts-by-user-id';
+// ─── HTTP Client ─────────────────────────────────────────────────────────────
+// Uses IOClient to bypass SSL cert errors (self-signed / expired on port 5001)
+http.Client _buildClient() {
+  final httpClient = HttpClient()
+    ..badCertificateCallback =
+        (X509Certificate cert, String host, int port) => true;
+  return IOClient(httpClient);
+}
 
 // ─── Overall LSRW Models ───────────────────────────────────────────────────
 
@@ -35,12 +39,12 @@ class OverallSkill {
 
   factory OverallSkill.fromJson(Map<String, dynamic> json) {
     return OverallSkill(
-      module: json['module'] ?? '',
-      count: json['count'] ?? 0,
-      duration: json['duration'] ?? 0,
-      accuracy: double.tryParse(json['accuracy'].toString()) ?? 0.0,
+      module:     json['module'] ?? '',
+      count:      json['count'] ?? 0,
+      duration:   json['duration'] ?? 0,
+      accuracy:   double.tryParse(json['accuracy'].toString()) ?? 0.0,
       percentage: double.tryParse(json['percentage'].toString()) ?? 0.0,
-      id: json['_id'] ?? '',
+      id:         json['_id'] ?? '',
     );
   }
 }
@@ -50,9 +54,9 @@ class OverallLsrwData {
   OverallLsrwData({required this.skills});
 
   OverallSkill? get listening => _find('Listening');
-  OverallSkill? get speaking => _find('Speaking');
-  OverallSkill? get reading => _find('Reading');
-  OverallSkill? get writing => _find('Writing');
+  OverallSkill? get speaking  => _find('Speaking');
+  OverallSkill? get reading   => _find('Reading');
+  OverallSkill? get writing   => _find('Writing');
 
   OverallSkill? _find(String name) {
     try {
@@ -65,12 +69,9 @@ class OverallLsrwData {
   }
 
   double get overallPercentage {
-    final rel = [
-      listening,
-      speaking,
-      reading,
-      writing,
-    ].whereType<OverallSkill>().toList();
+    final rel = [listening, speaking, reading, writing]
+        .whereType<OverallSkill>()
+        .toList();
     if (rel.isEmpty) return 0;
     return rel.fold(0.0, (s, e) => s + e.percentage) / rel.length;
   }
@@ -101,7 +102,7 @@ class ModuleRecord {
       moduleIcon: json['module_icon'] ?? '',
       complexity: json['complexity'] ?? 'easy',
       percentage: double.tryParse(json['percentage'].toString()) ?? 0.0,
-      count: json['count'] ?? 0,
+      count:      json['count'] ?? 0,
       courseName: json['course_name'] ?? '',
     );
   }
@@ -121,7 +122,7 @@ class SkillDetail {
   factory SkillDetail.fromJson(Map<String, dynamic> json) {
     final raw = json['records'] as List<dynamic>? ?? [];
     return SkillDetail(
-      records: raw.map((r) => ModuleRecord.fromJson(r)).toList(),
+      records:    raw.map((r) => ModuleRecord.fromJson(r)).toList(),
       noAttempts: json['no_attempts'] ?? 0,
       percentage: double.tryParse(json['percentage'].toString()) ?? 0.0,
     );
@@ -147,26 +148,21 @@ class IndividualLsrwData {
 
   factory IndividualLsrwData.fromJson(Map<String, dynamic> json) {
     return IndividualLsrwData(
-      listening: SkillDetail.fromJson(json['listening'] ?? {}),
-      speaking: SkillDetail.fromJson(json['speaking'] ?? {}),
-      reading: SkillDetail.fromJson(json['reading'] ?? {}),
-      writing: SkillDetail.fromJson(json['writing'] ?? {}),
-      totalAttempts: json['total_attempts'] ?? 0,
-      userPercentage:
-          double.tryParse(json['user_percentage'].toString()) ?? 0.0,
+      listening:      SkillDetail.fromJson(json['listening'] ?? {}),
+      speaking:       SkillDetail.fromJson(json['speaking']  ?? {}),
+      reading:        SkillDetail.fromJson(json['reading']   ?? {}),
+      writing:        SkillDetail.fromJson(json['writing']   ?? {}),
+      totalAttempts:  json['total_attempts'] ?? 0,
+      userPercentage: double.tryParse(json['user_percentage'].toString()) ?? 0.0,
     );
   }
 
   SkillDetail detailFor(String skill) {
     switch (skill.toLowerCase()) {
-      case 'listening':
-        return listening;
-      case 'speaking':
-        return speaking;
-      case 'reading':
-        return reading;
-      default:
-        return writing;
+      case 'listening': return listening;
+      case 'speaking':  return speaking;
+      case 'reading':   return reading;
+      default:          return writing;
     }
   }
 }
@@ -185,58 +181,68 @@ class LsrwApiService {
   Map<String, dynamic> get _body => {'user_id': userId};
 
   Future<OverallLsrwData> fetchOverallData() async {
-    final response = await http
-        .post(
-          Uri.parse(kOverallLsrwApi),
-          headers: _headers,
-          body: jsonEncode(_body),
-        )
-        .timeout(const Duration(seconds: 15));
+    final client = _buildClient();
+    try {
+      final response = await client
+          .post(
+            Uri.parse(kOverallLsrwApi),
+            headers: _headers,
+            body: jsonEncode(_body),
+          )
+          .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200) {
-      final dynamic decoded = jsonDecode(response.body);
-      List<dynamic> list;
-      if (decoded is List) {
-        list = decoded;
-      } else if (decoded is Map && decoded.containsKey('data')) {
-        list = decoded['data'] as List<dynamic>;
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        List<dynamic> list;
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map && decoded.containsKey('data')) {
+          list = decoded['data'] as List<dynamic>;
+        } else {
+          throw Exception('Unexpected response format from overall API');
+        }
+        return OverallLsrwData(
+          skills: list.map((j) => OverallSkill.fromJson(j)).toList(),
+        );
       } else {
-        throw Exception('Unexpected format from overall API');
+        throw Exception(
+          'Overall API error ${response.statusCode}: ${response.body}',
+        );
       }
-      return OverallLsrwData(
-        skills: list.map((j) => OverallSkill.fromJson(j)).toList(),
-      );
-    } else {
-      throw Exception(
-        'Overall API error: ${response.statusCode}\n${response.body}',
-      );
+    } finally {
+      client.close();
     }
   }
 
   Future<IndividualLsrwData> fetchIndividualData() async {
-    final response = await http
-        .post(
-          Uri.parse(kIndividualLsrwApi),
-          headers: _headers,
-          body: jsonEncode(_body),
-        )
-        .timeout(const Duration(seconds: 15));
+    final client = _buildClient();
+    try {
+      final response = await client
+          .post(
+            Uri.parse(kIndividualLsrwApi),
+            headers: _headers,
+            body: jsonEncode(_body),
+          )
+          .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode == 200) {
-      final dynamic decoded = jsonDecode(response.body);
-      Map<String, dynamic> map;
-      if (decoded is Map<String, dynamic>) {
-        map = decoded;
-      } else if (decoded is Map && decoded.containsKey('data')) {
-        map = decoded['data'] as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        Map<String, dynamic> map;
+        if (decoded is Map<String, dynamic>) {
+          map = decoded;
+        } else if (decoded is Map && decoded.containsKey('data')) {
+          map = decoded['data'] as Map<String, dynamic>;
+        } else {
+          throw Exception('Unexpected response format from individual API');
+        }
+        return IndividualLsrwData.fromJson(map);
       } else {
-        throw Exception('Unexpected format from individual API');
+        throw Exception(
+          'Individual API error ${response.statusCode}: ${response.body}',
+        );
       }
-      return IndividualLsrwData.fromJson(map);
-    } else {
-      throw Exception(
-        'Individual API error: ${response.statusCode}\n${response.body}',
-      );
+    } finally {
+      client.close();
     }
   }
 }
