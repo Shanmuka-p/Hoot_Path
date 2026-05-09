@@ -51,7 +51,7 @@ class _LearningPathScreenState extends State<LearningPathScreen>
       errorMessage = '';
     });
 
-    // Ping server first for a fast, clear error
+    // Ping server — even a 404 means server is running
     final reachable = await _service.isServerReachable();
     if (!reachable) {
       setState(() {
