@@ -106,6 +106,15 @@ class ModuleRecord {
       courseName: json['course_name'] ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'module_name': moduleName,
+    'module_icon': moduleIcon,
+    'complexity': complexity,
+    'percentage': percentage,
+    'count': count,
+    'course_name': courseName,
+  };
 }
 
 class SkillDetail {
@@ -127,6 +136,12 @@ class SkillDetail {
       percentage: double.tryParse(json['percentage'].toString()) ?? 0.0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'records': records.map((r) => r.toJson()).toList(),
+    'no_attempts': noAttempts,
+    'percentage': percentage,
+  };
 }
 
 class IndividualLsrwData {
