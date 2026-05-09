@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 const LearningPath = require('./models/LearningPath');
 
 const app = express();
@@ -17,7 +17,11 @@ mongoose.connect(process.env.MONGO_URI, {
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.log('MongoDB Error:', err));
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Grok is OpenAI-compatible — just point the baseURL to api.x.ai
+const grok = new OpenAI({
+    apiKey: process.env.GROK_API_KEY,
+    baseURL: 'https://api.x.ai/v1',
+});
 
 app.post('/api/get-learning-path', async (req, res) => {
     try {
@@ -74,20 +78,44 @@ app.post('/api/generate-learning-path', async (req, res) => {
             return res.status(400).json({ error: "Active path exists." });
         }
 
-        const prompt = `Student accuracy data: ${JSON.stringify(accuracy)}. Generate a 30-day personalized learning path. Rules: 3-5 tasks per day. Weak skills (<60%) get 40% focus. Strong skills (>80%) get 10% maintenance. Difficulty scales up days 1-30. Return ONLY a valid JSON array named 'path' with no markdown blocks.`;
+        const prompt = `You are a language learning expert. Generate a personalized 30-day English learning path based on this student accuracy data: ${JSON.stringify(accuracy)}.
 
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-        const result = await model.generateContent(prompt);
-        let responseText = result.response.text().trim();
+Rules:
+- 3 to 5 tasks per day
+- Weak skills (below 60%) get 40% focus
+- Strong skills (above 80%) get only 10% maintenance
+- Difficulty increases progressively from day 1 to day 30
+- Each task must have: skill (Listening/Speaking/Reading/Writing), module (task name), count (reps), difficulty (easy/medium/hard)
+- Each day must have: day (number 1-30), focus (short title like "Listening Focus"), tasks (array)
 
-        // Strip any markdown code fences Gemini wraps around the JSON
+Return ONLY a valid JSON object with a single key "path" containing an array of 30 day objects. No markdown, no explanation, just the JSON.`;
+
+        const completion = await grok.chat.completions.create({
+            model: 'grok-3-mini',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a language learning AI that returns only valid JSON.',
+                },
+                {
+                    role: 'user',
+                    content: prompt,
+                },
+            ],
+            temperature: 0.7,
+        });
+
+        let responseText = completion.choices[0].message.content.trim();
+
+        // Strip markdown code fences if present
         responseText = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
 
         let generatedData;
         try {
             generatedData = JSON.parse(responseText);
         } catch (parseError) {
-            return res.status(500).json({ error: "Failed to parse JSON response from Gemini" });
+            console.error('Grok raw response:', responseText);
+            return res.status(500).json({ error: "Failed to parse JSON response from Grok" });
         }
 
         const newPath = new LearningPath({
@@ -110,6 +138,7 @@ app.post('/api/generate-learning-path', async (req, res) => {
         const savedDoc = await newPath.save();
         res.json(savedDoc);
     } catch (error) {
+        console.error('Generate path error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
