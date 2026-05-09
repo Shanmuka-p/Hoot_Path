@@ -1,42 +1,57 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 class LearningPathService {
-  // 🌐 Deployed cloud backend — works from anywhere, any network.
-  // This is the Render.com deployment URL for the Hoot Path server.
-  static const String _baseUrl = 'https://hoot-path-server.onrender.com/api';
+  // 🌐 Uses the existing production server (same as LSRW API)
+  static const String _baseUrl = 'https://aihoot.in:5001/api';
 
   String get baseUrl => _baseUrl;
+
+  // Same SSL-bypass client as lsrw_api_service (self-signed cert on port 5001)
+  http.Client _buildClient() {
+    final httpClient = HttpClient()
+      ..badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
+    return IOClient(httpClient);
+  }
 
   Map<String, dynamic> _handleResponse(http.Response response) {
     final Map<String, dynamic> decoded;
     try {
       decoded = json.decode(response.body) as Map<String, dynamic>;
     } catch (_) {
-      throw Exception('Invalid response from server (not JSON). Body: ${response.body}');
+      throw Exception(
+          'Invalid response from server (not JSON). Body: ${response.body}');
     }
     if (response.statusCode >= 400) {
-      throw Exception('Server error ${response.statusCode}: ${decoded['error'] ?? response.body}');
+      throw Exception(
+          'Server error ${response.statusCode}: ${decoded['error'] ?? response.body}');
     }
     return decoded;
   }
 
   /// Quick ping to check if server is reachable.
   Future<bool> isServerReachable() async {
+    final client = _buildClient();
     try {
-      final response = await http
-          .get(Uri.parse(_baseUrl.replaceAll('/api', '/')))
+      final response = await client
+          .get(Uri.parse('https://aihoot.in:5001/'))
           .timeout(const Duration(seconds: 8));
       return response.statusCode < 500;
     } catch (_) {
       return false;
+    } finally {
+      client.close();
     }
   }
 
   Future<Map<String, dynamic>> checkExistingPath(String userId) async {
+    final client = _buildClient();
     try {
-      final response = await http
+      final response = await client
           .post(
             Uri.parse('$baseUrl/get-learning-path'),
             headers: {"Content-Type": "application/json"},
@@ -46,6 +61,8 @@ class LearningPathService {
       return _handleResponse(response);
     } on TimeoutException {
       throw Exception('Cannot reach server. Check your internet connection.');
+    } finally {
+      client.close();
     }
   }
 
@@ -53,9 +70,10 @@ class LearningPathService {
     String userId,
     Map<String, dynamic> accuracyData,
   ) async {
+    final client = _buildClient();
     try {
       // Gemini generation + MongoDB save can take 30-60s
-      final response = await http
+      final response = await client
           .post(
             Uri.parse('$baseUrl/generate-learning-path'),
             headers: {"Content-Type": "application/json"},
@@ -64,13 +82,17 @@ class LearningPathService {
           .timeout(const Duration(seconds: 120));
       return _handleResponse(response);
     } on TimeoutException {
-      throw Exception('Path generation timed out. The AI is taking too long — please try again.');
+      throw Exception(
+          'Path generation timed out. The AI is taking too long — please try again.');
+    } finally {
+      client.close();
     }
   }
 
   Future<Map<String, dynamic>> completeDay(String userId, int day) async {
+    final client = _buildClient();
     try {
-      final response = await http
+      final response = await client
           .post(
             Uri.parse('$baseUrl/complete-day'),
             headers: {"Content-Type": "application/json"},
@@ -80,6 +102,8 @@ class LearningPathService {
       return _handleResponse(response);
     } on TimeoutException {
       throw Exception('Request timed out. Check your internet connection.');
+    } finally {
+      client.close();
     }
   }
 }
