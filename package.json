@@ -6,7 +6,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "openai": "^4.52.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
