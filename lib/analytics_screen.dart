@@ -2,26 +2,27 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:hoot_path/lsrw_api_service.dart.dart';
 import 'package:hoot_path/skill_detail_sheet.dart';
+import 'package:hoot_path/learning_path_screen.dart';
 
 // ─── Theme Colors ─────────────────────────────────────────────────────────────
-const kAppGreen    = Color(0xFF008738);
-const kAppGreenBg  = Color(0xFFE6F4EC);
-const kInsightBg   = Color(0xFFF0F7F2);
-const kScaffoldBg  = Color(0xFFF5F5F5);
-const kBlack       = Color(0xFF1A1A1A);
-const kTextGrey    = Color(0xFF757575);
-const kWhite       = Colors.white;
+const kAppGreen = Color(0xFF008738);
+const kAppGreenBg = Color(0xFFE6F4EC);
+const kInsightBg = Color(0xFFF0F7F2);
+const kScaffoldBg = Color(0xFFF5F5F5);
+const kBlack = Color(0xFF1A1A1A);
+const kTextGrey = Color(0xFF757575);
+const kWhite = Colors.white;
 
 // ─── LSRW Skill Colors ────────────────────────────────────────────────────────
 const kListeningColor = Color(0xFF008738); // green
-const kSpeakingColor  = Color(0xFFFFBB00); // yellow
-const kReadingColor   = Color(0xFF72BD20); // lime
-const kWritingColor   = Color(0xFF2196F3); // blue
+const kSpeakingColor = Color(0xFFFFBB00); // yellow
+const kReadingColor = Color(0xFF72BD20); // lime
+const kWritingColor = Color(0xFF2196F3); // blue
 
 const kListeningBg = Color(0xFFE6F4EC);
-const kSpeakingBg  = Color(0xFFFFF8E1);
-const kReadingBg   = Color(0xFFF2FAE6);
-const kWritingBg   = Color(0xFFE3F2FD);
+const kSpeakingBg = Color(0xFFFFF8E1);
+const kReadingBg = Color(0xFFF2FAE6);
+const kWritingBg = Color(0xFFE3F2FD);
 
 // ─── Hardcoded user ID (replace from login/session) ───────────────────────────
 const kUserId = '66628e2f213ad0a228fedd06';
@@ -49,19 +50,25 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final results = await Future.wait([
         _api.fetchOverallData(),
         _api.fetchIndividualData(),
       ]);
       setState(() {
-        _overall    = results[0] as OverallLsrwData;
+        _overall = results[0] as OverallLsrwData;
         _individual = results[1] as IndividualLsrwData;
-        _loading    = false;
+        _loading = false;
       });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
   }
 
@@ -82,12 +89,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   String _insightText(OverallLsrwData data) {
     final skills = <String, double>{
       'Listening': data.listening?.percentage ?? 0,
-      'Speaking':  data.speaking?.percentage  ?? 0,
-      'Reading':   data.reading?.percentage   ?? 0,
-      'Writing':   data.writing?.percentage   ?? 0,
+      'Speaking': data.speaking?.percentage ?? 0,
+      'Reading': data.reading?.percentage ?? 0,
+      'Writing': data.writing?.percentage ?? 0,
     };
-    final weakest   = skills.entries.reduce((a, b) => a.value < b.value ? a : b);
-    final strongest = skills.entries.reduce((a, b) => a.value > b.value ? a : b);
+    final weakest = skills.entries.reduce((a, b) => a.value < b.value ? a : b);
+    final strongest = skills.entries.reduce(
+      (a, b) => a.value > b.value ? a : b,
+    );
     return 'Focus more on ${weakest.key} and ${_secondWeakest(skills, weakest.key)} '
         'to improve your overall communication skills.';
   }
@@ -118,8 +127,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       body: _loading
           ? _buildLoader()
           : _error != null
-              ? _buildError()
-              : _buildContent(),
+          ? _buildError()
+          : _buildContent(),
     );
   }
 
@@ -131,8 +140,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         children: [
           CircularProgressIndicator(color: kAppGreen),
           SizedBox(height: 16),
-          Text('Loading your analytics…',
-              style: TextStyle(color: kTextGrey, fontSize: 14)),
+          Text(
+            'Loading your analytics…',
+            style: TextStyle(color: kTextGrey, fontSize: 14),
+          ),
         ],
       ),
     );
@@ -148,12 +159,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           children: [
             const Icon(Icons.wifi_off_rounded, size: 56, color: kTextGrey),
             const SizedBox(height: 16),
-            const Text('Failed to load data',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kBlack)),
+            const Text(
+              'Failed to load data',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: kBlack,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(_error ?? '',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: kTextGrey, fontSize: 13)),
+            Text(
+              _error ?? '',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: kTextGrey, fontSize: 13),
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _loadData,
@@ -162,8 +181,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: kAppGreen,
                 foregroundColor: kWhite,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -174,15 +198,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   // ── Main Content ────────────────────────────────────────────────────────────
   Widget _buildContent() {
-    final overall    = _overall!;
+    final overall = _overall!;
     final individual = _individual!;
     final overallPct = individual.userPercentage;
 
     // Per-skill percentages from overall API
     final lPct = overall.listening?.percentage ?? 0;
-    final sPct = overall.speaking?.percentage  ?? 0;
-    final rPct = overall.reading?.percentage   ?? 0;
-    final wPct = overall.writing?.percentage   ?? 0;
+    final sPct = overall.speaking?.percentage ?? 0;
+    final rPct = overall.reading?.percentage ?? 0;
+    final wPct = overall.writing?.percentage ?? 0;
 
     return SafeArea(
       child: Column(
@@ -203,8 +227,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
                   // ── Overall LSRW Performance card (donut + skill rows + insight) ──
                   _PerformanceCard(
-                    overallPct:  overallPct,
-                    lPct: lPct, sPct: sPct, rPct: rPct, wPct: wPct,
+                    overallPct: overallPct,
+                    lPct: lPct,
+                    sPct: sPct,
+                    rPct: rPct,
+                    wPct: wPct,
                     lAttempts: individual.listening.noAttempts,
                     sAttempts: individual.speaking.noAttempts,
                     rAttempts: individual.reading.noAttempts,
@@ -246,7 +273,11 @@ class _TopBar extends StatelessWidget {
         children: [
           const Text(
             'Dashboard',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: kBlack),
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: kBlack,
+            ),
           ),
           Row(
             children: [
@@ -255,19 +286,35 @@ class _TopBar extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: kWhite,
                       shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.notifications_outlined, color: kBlack, size: 20),
+                    child: const Icon(
+                      Icons.notifications_outlined,
+                      color: kBlack,
+                      size: 20,
+                    ),
                   ),
                   Positioned(
-                    top: -2, right: -2,
+                    top: -2,
+                    right: -2,
                     child: Container(
-                      width: 12, height: 12,
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      width: 12,
+                      height: 12,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 ],
@@ -275,10 +322,21 @@ class _TopBar extends StatelessWidget {
               const SizedBox(width: 10),
               // Avatar
               Container(
-                width: 40, height: 40,
-                decoration: const BoxDecoration(color: kAppGreen, shape: BoxShape.circle),
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: kAppGreen,
+                  shape: BoxShape.circle,
+                ),
                 child: const Center(
-                  child: Text('S', style: TextStyle(color: kWhite, fontWeight: FontWeight.w700, fontSize: 16)),
+                  child: Text(
+                    'S',
+                    style: TextStyle(
+                      color: kWhite,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -298,7 +356,13 @@ class _HelloCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: kWhite,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -306,13 +370,22 @@ class _HelloCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                Text('Hello, Shannu! 👋',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kBlack),
-                    overflow: TextOverflow.ellipsis),
+                Text(
+                  'Hello, Shannu! 👋',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: kBlack,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
                 SizedBox(height: 4),
-                Text('Keep practicing and improve every day.',
-                    style: TextStyle(fontSize: 13, color: kTextGrey),
-                    overflow: TextOverflow.ellipsis, maxLines: 2),
+                Text(
+                  'Keep practicing and improve every day.',
+                  style: TextStyle(fontSize: 13, color: kTextGrey),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
               ],
             ),
           ),
@@ -320,17 +393,34 @@ class _HelloCard extends StatelessWidget {
           // Level badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(color: kAppGreenBg, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: kAppGreenBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(width: 28, height: 28, child: CustomPaint(painter: _BarChartIconPainter())),
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CustomPaint(painter: _BarChartIconPainter()),
+                ),
                 const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text('Level', style: TextStyle(fontSize: 11, color: kTextGrey)),
-                    Text('Intermediate', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kBlack)),
+                    Text(
+                      'Level',
+                      style: TextStyle(fontSize: 11, color: kTextGrey),
+                    ),
+                    Text(
+                      'Intermediate',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: kBlack,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -354,12 +444,18 @@ class _PerformanceCard extends StatelessWidget {
 
   const _PerformanceCard({
     required this.overallPct,
-    required this.lPct, required this.sPct,
-    required this.rPct, required this.wPct,
-    required this.lAttempts, required this.sAttempts,
-    required this.rAttempts, required this.wAttempts,
-    required this.statusLabel, required this.statusColor,
-    required this.insightText, required this.onSkillTap,
+    required this.lPct,
+    required this.sPct,
+    required this.rPct,
+    required this.wPct,
+    required this.lAttempts,
+    required this.sAttempts,
+    required this.rAttempts,
+    required this.wAttempts,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.insightText,
+    required this.onSkillTap,
   });
 
   @override
@@ -369,14 +465,26 @@ class _PerformanceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: kWhite,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Title
-          const Text('Overall LSRW Performance',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kBlack)),
+          const Text(
+            'Overall LSRW Performance',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: kBlack,
+            ),
+          ),
           const SizedBox(height: 20),
 
           // Donut + skill rows side-by-side
@@ -385,19 +493,34 @@ class _PerformanceCard extends StatelessWidget {
             children: [
               // Donut chart
               SizedBox(
-                width: 140, height: 140,
+                width: 140,
+                height: 140,
                 child: CustomPaint(
                   painter: _DonutPainter(l: lPct, s: sPct, r: rPct, w: wPct),
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Overall',
-                            style: TextStyle(fontSize: 11, color: kTextGrey)),
-                        Text('${overallPct.toStringAsFixed(0)}%',
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kBlack)),
-                        Text(statusLabel,
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: statusColor)),
+                        const Text(
+                          'Overall',
+                          style: TextStyle(fontSize: 11, color: kTextGrey),
+                        ),
+                        Text(
+                          '${overallPct.toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: kBlack,
+                          ),
+                        ),
+                        Text(
+                          statusLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -411,29 +534,37 @@ class _PerformanceCard extends StatelessWidget {
                   children: [
                     _SkillRow(
                       icon: Icons.headphones_outlined,
-                      iconColor: kListeningColor, iconBg: kListeningBg,
-                      label: 'Listening', pct: lPct,
+                      iconColor: kListeningColor,
+                      iconBg: kListeningBg,
+                      label: 'Listening',
+                      pct: lPct,
                       onTap: () => onSkillTap('listening'),
                     ),
                     const SizedBox(height: 14),
                     _SkillRow(
                       icon: Icons.mic_outlined,
-                      iconColor: kSpeakingColor, iconBg: kSpeakingBg,
-                      label: 'Speaking', pct: sPct,
+                      iconColor: kSpeakingColor,
+                      iconBg: kSpeakingBg,
+                      label: 'Speaking',
+                      pct: sPct,
                       onTap: () => onSkillTap('speaking'),
                     ),
                     const SizedBox(height: 14),
                     _SkillRow(
                       icon: Icons.menu_book_outlined,
-                      iconColor: kReadingColor, iconBg: kReadingBg,
-                      label: 'Reading', pct: rPct,
+                      iconColor: kReadingColor,
+                      iconBg: kReadingBg,
+                      label: 'Reading',
+                      pct: rPct,
                       onTap: () => onSkillTap('reading'),
                     ),
                     const SizedBox(height: 14),
                     _SkillRow(
                       icon: Icons.edit_outlined,
-                      iconColor: kWritingColor, iconBg: kWritingBg,
-                      label: 'Writing', pct: wPct,
+                      iconColor: kWritingColor,
+                      iconBg: kWritingBg,
+                      label: 'Writing',
+                      pct: wPct,
                       onTap: () => onSkillTap('writing'),
                     ),
                   ],
@@ -460,16 +591,32 @@ class _PerformanceCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Insight',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kBlack)),
+                      const Text(
+                        'Insight',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: kBlack,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(insightText,
-                          style: const TextStyle(fontSize: 12, color: kTextGrey, height: 1.4)),
+                      Text(
+                        insightText,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: kTextGrey,
+                          height: 1.4,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 10),
-                SizedBox(width: 44, height: 44, child: CustomPaint(painter: _TargetIconPainter())),
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: CustomPaint(painter: _TargetIconPainter()),
+                ),
               ],
             ),
           ),
@@ -488,8 +635,12 @@ class _SkillRow extends StatelessWidget {
   final VoidCallback onTap;
 
   const _SkillRow({
-    required this.icon, required this.iconColor, required this.iconBg,
-    required this.label, required this.pct, required this.onTap,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.label,
+    required this.pct,
+    required this.onTap,
   });
 
   @override
@@ -500,18 +651,32 @@ class _SkillRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 30, height: 30,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
             child: Icon(icon, color: iconColor, size: 16),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(label,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: kBlack),
-                overflow: TextOverflow.ellipsis, maxLines: 1),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: kBlack,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
           ),
-          Text('${pct.toStringAsFixed(0)}%',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: iconColor)),
+          Text(
+            '${pct.toStringAsFixed(0)}%',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: iconColor,
+            ),
+          ),
           const SizedBox(width: 4),
           const Icon(Icons.chevron_right, color: kTextGrey, size: 18),
         ],
@@ -529,7 +694,13 @@ class _LearningPathCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: kWhite,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -538,13 +709,25 @@ class _LearningPathCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
               Flexible(
-                child: Text('Your Learning Path',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kBlack),
-                    overflow: TextOverflow.ellipsis),
+                child: Text(
+                  'Your Learning Path',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: kBlack,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               SizedBox(width: 8),
-              Text('Recommended for you',
-                  style: TextStyle(fontSize: 12, color: kAppGreen, fontWeight: FontWeight.w500)),
+              Text(
+                'Recommended for you',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: kAppGreen,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -552,14 +735,32 @@ class _LearningPathCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _PathStep(icon: Icons.mic_outlined, iconColor: kSpeakingColor, iconBg: kSpeakingBg,
-                  title: 'Speaking', subtitle: 'Basics', number: '7'),
+              _PathStep(
+                icon: Icons.mic_outlined,
+                iconColor: kSpeakingColor,
+                iconBg: kSpeakingBg,
+                title: 'Speaking',
+                subtitle: 'Basics',
+                number: '7',
+              ),
               _PathArrow(),
-              _PathStep(icon: Icons.edit_outlined, iconColor: kWritingColor, iconBg: kWritingBg,
-                  title: 'Writing', subtitle: 'Email Writing', number: '7'),
+              _PathStep(
+                icon: Icons.edit_outlined,
+                iconColor: kWritingColor,
+                iconBg: kWritingBg,
+                title: 'Writing',
+                subtitle: 'Email Writing',
+                number: '7',
+              ),
               _PathArrow(),
-              _PathStep(icon: Icons.headphones_outlined, iconColor: kListeningColor, iconBg: kListeningBg,
-                  title: 'Listening', subtitle: 'Conversations', number: '7'),
+              _PathStep(
+                icon: Icons.headphones_outlined,
+                iconColor: kListeningColor,
+                iconBg: kListeningBg,
+                title: 'Listening',
+                subtitle: 'Conversations',
+                number: '7',
+              ),
             ],
           ),
         ],
@@ -574,8 +775,12 @@ class _PathStep extends StatelessWidget {
   final String title, subtitle, number;
 
   const _PathStep({
-    required this.icon, required this.iconColor, required this.iconBg,
-    required this.title, required this.subtitle, required this.number,
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.title,
+    required this.subtitle,
+    required this.number,
   });
 
   @override
@@ -588,32 +793,58 @@ class _PathStep extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 52, height: 52,
-                decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  shape: BoxShape.circle,
+                ),
                 child: Icon(icon, color: iconColor, size: 26),
               ),
               Positioned(
-                bottom: -4, right: -4,
+                bottom: -4,
+                right: -4,
                 child: Container(
-                  width: 18, height: 18,
+                  width: 18,
+                  height: 18,
                   decoration: BoxDecoration(
-                    color: kAppGreen, shape: BoxShape.circle,
+                    color: kAppGreen,
+                    shape: BoxShape.circle,
                     border: Border.all(color: kWhite, width: 1.5),
                   ),
                   child: Center(
-                    child: Text(number, style: const TextStyle(color: kWhite, fontSize: 9, fontWeight: FontWeight.w700)),
+                    child: Text(
+                      number,
+                      style: const TextStyle(
+                        color: kWhite,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          Text(title, textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kBlack),
-              overflow: TextOverflow.ellipsis, maxLines: 1),
-          Text(subtitle, textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: kTextGrey),
-              overflow: TextOverflow.ellipsis, maxLines: 1),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: kBlack,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, color: kTextGrey),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         ],
       ),
     );
@@ -637,17 +868,52 @@ class _ContinueButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: SizedBox(
-        width: double.infinity, height: 54,
-        child: ElevatedButton(
-          onPressed: () {},
-          style: ElevatedButton.styleFrom(
-            backgroundColor: kAppGreen,
-            foregroundColor: kWhite,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            elevation: 0,
-          ),
-          child: const Text('Continue Learning',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+        width: double.infinity,
+        height: 54,
+        child: Builder(
+          builder: (context) {
+            // Accessing state from the parent AnalyticsScreen
+            final state = context.findAncestorStateOfType<_AnalyticsScreenState>();
+            final overall = state?._overall;
+            final individual = state?._individual;
+
+            return ElevatedButton.icon(
+              icon: const Icon(Icons.route, color: Colors.black),
+              label: const Text(
+                "AI Mentor Path",
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFBB00),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              onPressed: (overall == null || individual == null) ? null : () {
+                Map<String, dynamic> accuracyPayload = {
+                  "listening": overall.listening?.percentage ?? 0,
+                  "speaking": overall.speaking?.percentage ?? 0,
+                  "reading": overall.reading?.percentage ?? 0,
+                  "writing": overall.writing?.percentage ?? 0,
+                  "modules": {
+                    "listening": individual.listening,
+                    "speaking": individual.speaking,
+                    "reading": individual.reading,
+                    "writing": individual.writing,
+                  }, 
+                };
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LearningPathScreen(
+                      userId: kUserId,
+                      currentAccuracy: accuracyPayload,
+                    ),
+                  ),
+                );
+              },
+            );
+          }
         ),
       ),
     );
@@ -659,7 +925,12 @@ class _ContinueButton extends StatelessWidget {
 /// Donut chart with 4 LSRW segments
 class _DonutPainter extends CustomPainter {
   final double l, s, r, w;
-  const _DonutPainter({required this.l, required this.s, required this.r, required this.w});
+  const _DonutPainter({
+    required this.l,
+    required this.s,
+    required this.r,
+    required this.w,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -671,7 +942,12 @@ class _DonutPainter extends CustomPainter {
     const strokeW = 22.0;
     const gap = 0.06;
 
-    final colors = [kListeningColor, kSpeakingColor, kReadingColor, kWritingColor];
+    final colors = [
+      kListeningColor,
+      kSpeakingColor,
+      kReadingColor,
+      kWritingColor,
+    ];
     final values = [l, s, r, w];
 
     final paint = Paint()
@@ -703,7 +979,9 @@ class _DonutPainter extends CustomPainter {
 class _BarChartIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = kAppGreen..style = PaintingStyle.fill;
+    final paint = Paint()
+      ..color = kAppGreen
+      ..style = PaintingStyle.fill;
     final bars = [0.4, 0.65, 1.0, 0.75];
     final barW = size.width / (bars.length * 2 - 1);
     for (int i = 0; i < bars.length; i++) {
@@ -727,10 +1005,19 @@ class _TargetIconPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2, cy = size.height / 2;
-    final stroke = Paint()..color = Colors.red..style = PaintingStyle.stroke..strokeWidth = 2;
+    final stroke = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
     canvas.drawCircle(Offset(cx, cy), 18, stroke);
     canvas.drawCircle(Offset(cx, cy), 12, stroke);
-    canvas.drawCircle(Offset(cx, cy), 5, Paint()..color = Colors.red..style = PaintingStyle.fill);
+    canvas.drawCircle(
+      Offset(cx, cy),
+      5,
+      Paint()
+        ..color = Colors.red
+        ..style = PaintingStyle.fill,
+    );
     final arrow = Paint()
       ..color = const Color(0xFFFF7043)
       ..style = PaintingStyle.stroke
