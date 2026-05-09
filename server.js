@@ -76,7 +76,7 @@ app.post('/api/generate-learning-path', async (req, res) => {
 
         const prompt = `Student accuracy data: ${JSON.stringify(accuracy)}. Generate a 30-day personalized learning path. Rules: 3-5 tasks per day. Weak skills (<60%) get 40% focus. Strong skills (>80%) get 10% maintenance. Difficulty scales up days 1-30. Return ONLY a valid JSON array named 'path' with no markdown blocks.`;
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
         const result = await model.generateContent(prompt);
         let responseText = result.response.text().trim();
 
