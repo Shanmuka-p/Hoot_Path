@@ -244,7 +244,11 @@ app.post('/api/generate-learning-path', async (req, res) => {
         `;
 
         // 2. Call the Ollama API using an environment variable for the base URL
-        const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+        let ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+        if (ollamaBaseUrl.endsWith('/')) {
+            ollamaBaseUrl = ollamaBaseUrl.slice(0, -1);
+        }
+        
         console.log(`Calling Ollama at ${ollamaBaseUrl} to generate path...`);
         
         const response = await fetch(`${ollamaBaseUrl}/api/generate`, {
@@ -262,7 +266,8 @@ app.post('/api/generate-learning-path', async (req, res) => {
         });
 
         if (!response.ok) {
-             throw new Error(`Ollama failed with status: ${response.status}`);
+             const errText = await response.text();
+             throw new Error(`Ollama failed with status: ${response.status}, message: ${errText}`);
         }
 
         const data = await response.json();
