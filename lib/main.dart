@@ -1,6 +1,7 @@
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hoot_path/login_screen.dart';
 import 'package:hoot_path/views/onboarding_view.dart';
 
 void main() {
@@ -24,7 +25,7 @@ class HootApp extends StatelessWidget {
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const HootHomePage(),
+      home: LoginScreen(),
     );
   }
 }
