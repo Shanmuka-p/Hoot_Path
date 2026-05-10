@@ -77,7 +77,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     if (pct >= 80) return 'Excellent';
     if (pct >= 65) return 'Good';
     if (pct >= 50) return 'Average';
-    return 'Needs Improvement';
+    return 'Poor';
   }
 
   Color _statusColor(double pct) {
