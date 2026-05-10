@@ -28,14 +28,67 @@ class _LearningPathScreenState extends State<LearningPathScreen>
   late Animation<double> _pulseAnimation;
   int _loadingStepIndex = 0;
   late Timer _loadingTimer;
+  List<String> _loadingSteps = [];
 
-  final List<String> _loadingSteps = [
-    'Analyzing your LSRW accuracy...',
-    'Identifying weakest skills...',
-    'Prioritizing modules for improvement...',
-    'Structuring phase-based progression...',
-    'Finalizing your personalized path...',
-  ];
+  // ── Accuracy-condition helpers ──────────────────────────────────────────────
+  static const _kCritical = 40.0;
+  static const _kWeak     = 60.0;
+  static const _kMod      = 75.0;
+  static const _kGood     = 90.0;
+
+  String _tierLabel(double pct) {
+    if (pct < _kCritical) return 'Critical';
+    if (pct < _kWeak)     return 'Weak';
+    if (pct < _kMod)      return 'Moderate';
+    if (pct < _kGood)     return 'Good';
+    return 'Strong';
+  }
+
+  Color _tierColor(double pct) {
+    if (pct < _kCritical) return const Color(0xFFD32F2F);
+    if (pct < _kWeak)     return const Color(0xFFE65100);
+    if (pct < _kMod)      return const Color(0xFFF9A825);
+    if (pct < _kGood)     return const Color(0xFF388E3C);
+    return const Color(0xFF1565C0);
+  }
+
+  int _priority(double pct) {
+    if (pct < _kCritical) return 5;
+    if (pct < _kWeak)     return 4;
+    if (pct < _kMod)      return 3;
+    if (pct < _kGood)     return 2;
+    return 1;
+  }
+
+  /// Builds dynamic, accuracy-aware loading messages.
+  List<String> _buildLoadingSteps() {
+    final acc = widget.currentAccuracy;
+    final l = (acc['listening'] ?? 0).toDouble();
+    final s = (acc['speaking']  ?? 0).toDouble();
+    final r = (acc['reading']   ?? 0).toDouble();
+    final w = (acc['writing']   ?? 0).toDouble();
+
+    // Sort skills by priority (weakest first) to name them in messages
+    final skills = [
+      {'name': 'Listening', 'pct': l},
+      {'name': 'Speaking',  'pct': s},
+      {'name': 'Reading',   'pct': r},
+      {'name': 'Writing',   'pct': w},
+    ]..sort((a, b) => (a['pct'] as double).compareTo(b['pct'] as double));
+
+    final weakest  = skills.first;
+    final strongest = skills.last;
+
+    return [
+      'Analyzing your LSRW accuracy data...',
+      '${weakest['name']} is your weakest (${(weakest['pct'] as double).toStringAsFixed(0)}%) — maximum focus assigned.',
+      '${strongest['name']} is strongest (${(strongest['pct'] as double).toStringAsFixed(0)}%) — light maintenance mode.',
+      'Sorting ${skills.where((s) => (s['pct'] as double) < _kWeak).length} weak skill(s) to the front of the queue...',
+      'Building Foundation → Practice → Mastery progression...',
+      'Assigning modules from weakest percentage upward...',
+      'Finalizing your 30-day personalized path...',
+    ];
+  }
 
   @override
   void initState() {
@@ -47,6 +100,8 @@ class _LearningPathScreenState extends State<LearningPathScreen>
     _pulseAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    _loadingSteps = _buildLoadingSteps();
 
     _loadingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (mounted && (isLoading || isGenerating)) {
@@ -173,98 +228,235 @@ class _LearningPathScreenState extends State<LearningPathScreen>
   }
 
   Widget _buildBody() {
-    if (isLoading || isGenerating) {
-      return _buildGeneratingState();
-    }
-
-    if (errorMessage.isNotEmpty) {
-      return _buildErrorState();
-    }
-
+    if (isLoading)     return _buildCheckingState();
+    if (isGenerating)  return _buildGeneratingState();
+    if (errorMessage.isNotEmpty) return _buildErrorState();
     if (pathData == null || pathData!['path'] == null) {
       return const Center(child: Text('No path available.'));
     }
-
     return _buildPathUI();
   }
 
-  Widget _buildGeneratingState() {
+  /// Minimal state shown while checking if a path already exists on the server.
+  Widget _buildCheckingState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ScaleTransition(
-              scale: _pulseAnimation,
-              child: Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF008738),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF008738).withOpacity(0.3),
-                      blurRadius: 24,
-                      spreadRadius: 8,
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.route, color: Colors.white, size: 44),
-              ),
-            ),
-            const SizedBox(height: 40),
-            const Text(
-              'Designing Your Path',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF1A1A1A),
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.0, 0.2),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: Color(0xFF008738)),
+          const SizedBox(height: 20),
+          Text(
+            'Checking your learning history...',
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Rich generating state — shows real skill analysis with tier badges.
+  Widget _buildGeneratingState() {
+    final acc = widget.currentAccuracy;
+    final skills = [
+      {'label': 'Listening', 'key': 'listening', 'icon': Icons.headphones},
+      {'label': 'Speaking',  'key': 'speaking',  'icon': Icons.mic},
+      {'label': 'Reading',   'key': 'reading',   'icon': Icons.menu_book},
+      {'label': 'Writing',   'key': 'writing',   'icon': Icons.edit},
+    ];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ── Pulsing icon ──
+          ScaleTransition(
+            scale: _pulseAnimation,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: const Color(0xFF008738),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF008738).withOpacity(0.3),
+                    blurRadius: 24,
+                    spreadRadius: 8,
                   ),
-                );
-              },
-              child: Text(
-                _loadingSteps[_loadingStepIndex],
-                key: ValueKey<int>(_loadingStepIndex),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Color(0xFF666666),
-                  fontWeight: FontWeight.w500,
+                ],
+              ),
+              child: const Icon(Icons.route, color: Colors.white, size: 40),
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          const Text(
+            'Designing Your Path',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1A1A1A),
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Based on your real accuracy — here\'s what we found:',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Skill Analysis Card ──
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'YOUR SKILL CONDITIONS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF008738),
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...skills.map((s) {
+                  final pct = (acc[s['key']] ?? 0).toDouble();
+                  final tier   = _tierLabel(pct);
+                  final tColor = _tierColor(pct);
+                  final sColor = _skillColor(s['label'] as String);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(s['icon'] as IconData, size: 16, color: sColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                s['label'] as String,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: Color(0xFF1A1A1A),
+                                ),
+                              ),
+                            ),
+                            // Percentage chip
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: sColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${pct.toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: sColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Tier badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: tColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                tier,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: tColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        // Progress bar
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: pct / 100.0,
+                            backgroundColor: sColor.withOpacity(0.12),
+                            color: sColor,
+                            minHeight: 5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Cycling status message ──
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.0, 0.15),
+                  end: Offset.zero,
+                ).animate(anim),
+                child: child,
               ),
             ),
-            const SizedBox(height: 48),
-            SizedBox(
-              width: 200,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: const LinearProgressIndicator(
-                  color: Color(0xFF008738),
-                  backgroundColor: Color(0xFFE8F5ED),
-                  minHeight: 6,
-                ),
+            child: Text(
+              _loadingSteps.isNotEmpty
+                  ? _loadingSteps[_loadingStepIndex % _loadingSteps.length]
+                  : 'Generating your path...',
+              key: ValueKey<int>(_loadingStepIndex),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF555555),
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Progress bar ──
+          SizedBox(
+            width: 180,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: const LinearProgressIndicator(
+                color: Color(0xFF008738),
+                backgroundColor: Color(0xFFE8F5ED),
+                minHeight: 5,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
