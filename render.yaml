@@ -8,6 +8,6 @@ services:
       - key: MONGO_URI
         value: mongodb+srv://hoot_admin:HootApp2026@cluster0.rfkxhhq.mongodb.net/?appName=Cluster0
       - key: GEMINI_API_KEY
-        value: AIzaSyCB3oxV6mGDxELK6Om7PqJMBIE8XzmToSU
+        value: AIzaSyCB3oxV6mGDxELK6Om7PqJMBIE8XzmToSU   # Replace with key from aistudio.google.com/apikey
       - key: PORT
         value: 5001
