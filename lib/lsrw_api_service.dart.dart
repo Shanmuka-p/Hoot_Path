@@ -4,10 +4,22 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 // ─── API Endpoints ─────────────────────────────────────────────────────────
-const String _base = 'https://aihoot.in:5001/api';
+const String _baseHost = 'https://aihoot.in:5001';
+const String _base = '$_baseHost/api';
 
 const String kOverallLsrwApi    = '$_base/get-attempts-duration-by-user-id';
 const String kIndividualLsrwApi = '$_base/get-individual-module-attempts-by-user-id';
+
+/// Converts a module_icon value from the API into a full URL.
+/// - Already a full URL (http/https) → returned as-is.
+/// - Relative path (e.g. /uploads/icons/x.png) → prefixed with the server origin.
+/// - Empty / null → returns empty string.
+String _resolveIconUrl(String? raw) {
+  if (raw == null || raw.isEmpty) return '';
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  // Relative path — prepend server origin
+  return '$_baseHost${raw.startsWith('/') ? raw : '/$raw'}';
+}
 
 // ─── HTTP Client ─────────────────────────────────────────────────────────────
 // Uses IOClient to bypass SSL cert errors (self-signed / expired on port 5001)
