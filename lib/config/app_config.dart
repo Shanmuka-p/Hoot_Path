@@ -1,16 +1,16 @@
 // ─── App Configuration ────────────────────────────────────────────────────────
 //
-// Centralizes all app-level constants to avoid hard-coding values across files.
+// Centralizes all app-level constants and runtime helpers.
 //
-// ⚠️  TODO (Auth):  kUserId is currently a hard-coded MongoDB ObjectId for
-//     development/demo purposes.  When user authentication is implemented,
-//     replace this with the user ID obtained from the login response / JWT token
-//     and pass it down via a UserProvider or similar state management solution.
+// kUserId is no longer a hard-coded const — it reads from AuthSession so that
+// the student_id returned by the login API is automatically used everywhere.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// The active user's ID.
-/// TODO: Replace with dynamic ID from authentication token after auth is added.
-const String kUserId = '679b4a4fe53c00689fa604f1';
+import 'package:hoot_path/services/auth_service.dart';
+
+/// The active user's MongoDB student_id.
+/// Populated automatically after a successful login via AuthService.
+String get kUserId => AuthSession.instance.userId;
 
 /// Base URL for the LSRW Analytics API (aihoot backend).
 const String kLsrwApiBaseHost = 'https://aihoot.in:5001';

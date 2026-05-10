@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hoot_path/analytics_screen.dart';
 import 'package:hoot_path/main.dart';
+import 'package:hoot_path/services/auth_service.dart';
 
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
@@ -33,8 +33,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onLogin() async {
-    if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.trim().isEmpty) {
+    final email    = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter email and password'),
@@ -45,15 +47,30 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    // Simulate network delay — replace with real auth call
-    await Future.delayed(const Duration(milliseconds: 800));
-    setState(() => _isLoading = false);
+
+    final result = await AuthService.login(
+      email   : email,
+      password: password,
+    );
 
     if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
-    );
+    setState(() => _isLoading = false);
+
+    if (result.success) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HootHomePage()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.errorMessage ?? 'Login failed'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   @override
@@ -160,10 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        // onPressed: _isLoading ? null : _onLogin,
-                        onPressed: ()=>{
-                          Navigator.push(context, MaterialPageRoute(builder:(context) => HootHomePage(),))
-                        },
+                        onPressed: _isLoading ? null : _onLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: kGreen,
                           foregroundColor: kWhite,
