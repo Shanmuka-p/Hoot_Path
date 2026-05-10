@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'learning_path_service.dart';
 import 'day_task_screen.dart';
@@ -25,22 +26,43 @@ class _LearningPathScreenState extends State<LearningPathScreen>
   Map<String, dynamic>? pathData;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  int _loadingStepIndex = 0;
+  late Timer _loadingTimer;
+
+  final List<String> _loadingSteps = [
+    'Analyzing your LSRW accuracy...',
+    'Identifying weakest skills...',
+    'Prioritizing modules for improvement...',
+    'Structuring phase-based progression...',
+    'Finalizing your personalized path...',
+  ];
 
   @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
-    _pulseAnimation =
-        Tween<double>(begin: 0.85, end: 1.15).animate(_pulseController);
+    _pulseAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _loadingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted && (isLoading || isGenerating)) {
+        setState(() {
+          _loadingStepIndex = (_loadingStepIndex + 1) % _loadingSteps.length;
+        });
+      }
+    });
+
     _loadPath();
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
+    _loadingTimer.cancel();
     super.dispose();
   }
 
@@ -151,13 +173,7 @@ class _LearningPathScreenState extends State<LearningPathScreen>
   }
 
   Widget _buildBody() {
-    if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF008738)),
-      );
-    }
-
-    if (isGenerating) {
+    if (isLoading || isGenerating) {
       return _buildGeneratingState();
     }
 
@@ -182,41 +198,70 @@ class _LearningPathScreenState extends State<LearningPathScreen>
             ScaleTransition(
               scale: _pulseAnimation,
               child: Container(
-                width: 80,
-                height: 80,
+                width: 90,
+                height: 90,
                 decoration: BoxDecoration(
                   color: const Color(0xFF008738),
-                  borderRadius: BorderRadius.circular(40),
+                  shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF008738).withOpacity(0.3),
-                      blurRadius: 20,
-                      spreadRadius: 5,
+                      blurRadius: 24,
+                      spreadRadius: 8,
                     ),
                   ],
                 ),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 40),
+                child: const Icon(Icons.route, color: Colors.white, size: 44),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
             const Text(
-              'Building Your 30-Day\nAdaptive Path...',
+              'Designing Your Path',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A1A1A)),
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF1A1A1A),
+                letterSpacing: -0.5,
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Your Hoot AI Mentor is crafting a personalized roadmap based on your accuracy data.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            const SizedBox(height: 12),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.0, 0.2),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: Text(
+                _loadingSteps[_loadingStepIndex],
+                key: ValueKey<int>(_loadingStepIndex),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Color(0xFF666666),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-            const SizedBox(height: 32),
-            const LinearProgressIndicator(
-              color: Color(0xFF008738),
-              backgroundColor: Color(0xFFE8F5ED),
+            const SizedBox(height: 48),
+            SizedBox(
+              width: 200,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: const LinearProgressIndicator(
+                  color: Color(0xFF008738),
+                  backgroundColor: Color(0xFFE8F5ED),
+                  minHeight: 6,
+                ),
+              ),
             ),
           ],
         ),
