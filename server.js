@@ -219,9 +219,61 @@ app.post('/api/generate-learning-path', async (req, res) => {
             return res.status(400).json({ error: 'Active path exists.' });
         }
 
-        // Generate path using smart algorithm (no external API needed)
-        const generatedPath = generateSmartPath(accuracy || {});
+        // 1. Construct the prompt for Ollama
+        const prompt = `
+        You are an AI language mentor. Generate a 30-day learning path based on this student's accuracy data:
+        Listening: ${accuracy?.listening || 0}%
+        Speaking: ${accuracy?.speaking || 0}%
+        Reading: ${accuracy?.reading || 0}%
+        Writing: ${accuracy?.writing || 0}%
 
+        Focus heavily on their weakest skills.
+        You MUST return ONLY valid JSON. The JSON must be an array of 30 objects.
+        Do not include any markdown formatting, backticks, or explanation. Just the raw JSON array.
+        
+        Exact structure required:
+        [
+          {
+            "day": 1,
+            "focus": "Listening Foundation",
+            "tasks": [
+               { "skill": "Listening", "module": "Audio Comprehension", "difficulty": "easy", "count": 2 }
+            ]
+          }
+        ]
+        `;
+
+        // 2. Call the local Ollama API
+        console.log("Calling local Ollama to generate path...");
+        
+        // Use the built-in fetch API (available in Node.js 18+)
+        const response = await fetch('http:/`/localhost`:`11434/api/generate`', {
+            method: 'POST',
+            headers: { 'Content-Type': '`application/json`' },
+            body: JSON.stringify({
+                model: 'llama3', // The model you downloaded
+                prompt: prompt,
+                stream: false,   // We want the full response at once
+                format: 'json'   // Forces Ollama to output valid JSON (supported in latest versions)
+            })
+        });
+
+        if (!response.ok) {
+             throw new Error(`Ollama failed with status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // 3. Parse the JSON returned by Ollama
+        let generatedPath;
+        try {
+            generatedPath = JSON.parse(data.response);
+        } catch (parseError) {
+             console.error("Failed to parse Ollama response as JSON:", data.response);
+             throw new Error("AI returned invalid JSON");
+        }
+
+        // 4. Save to MongoDB
         const newPath = new LearningPath({
             user_id,
             start_date: new Date().toISOString().split('T')[0],
@@ -240,8 +292,9 @@ app.post('/api/generate-learning-path', async (req, res) => {
         });
 
         const savedDoc = await newPath.save();
-        console.log(`Generated 30-day path for user: ${user_id}`);
+        console.log(`Successfully generated path with Ollama for user: ${user_id}`);
         res.json(savedDoc);
+
     } catch (error) {
         console.error('Generate path error:', error.message);
         res.status(500).json({ error: error.message });
