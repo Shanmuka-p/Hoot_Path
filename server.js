@@ -2,16 +2,11 @@ require('dotenv').config();
 const express  = require('express');
 const mongoose = require('mongoose');
 const cors     = require('cors');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const LearningPath = require('./models/LearningPath');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
-
-// ─── Gemini Client ────────────────────────────────────────────────────────────
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const geminiModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 // ─── MongoDB ──────────────────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI, {
@@ -22,9 +17,7 @@ mongoose.connect(process.env.MONGO_URI, {
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.log('MongoDB Error:', err));
 
-// ─── Fallback: Local Smart Path Generator ────────────────────────────────────
-// Used ONLY when Gemini is unavailable (no key, quota exceeded, etc.)
-
+// ─── Fallback module names (used when API data has no records) ─────────────────
 const FALLBACK_MODULES = {
     Listening: [
         'Audio Comprehension', 'Podcast Listening', 'Lecture Notes',
@@ -48,187 +41,145 @@ const FALLBACK_MODULES = {
     ],
 };
 
-function getDifficulty(day) {
-    if (day <= 10) return 'easy';
-    if (day <= 20) return 'medium';
-    return 'hard';
-}
+// ─── Smart 30-Day Path Generator ─────────────────────────────────────────────
+/**
+ * Generates a highly personalized 30-day learning path from real API accuracy data.
+ *
+ * Algorithm:
+ *  1. Skill priority is determined by accuracy (5 tiers — lower accuracy = higher priority).
+ *  2. Modules within each skill are sorted weakest-first (by individual module percentage)
+ *     so the student always practices what they struggle with most.
+ *  3. Days 1-10 → Foundation (easy, 3 tasks). Days 11-20 → Practice (medium, 4 tasks).
+ *     Days 21-30 → Mastery (hard, 5 tasks).
+ *  4. Each day: primary skill is drawn from the weighted pool; remaining slots are filled
+ *     by the next highest-priority skills.
+ *  5. Module selection rotates independently per skill so no module repeats consecutively.
+ */
+function generateSmartPath(accuracy) {
+    const SKILL_LABELS = {
+        listening: 'Listening',
+        speaking:  'Speaking',
+        reading:   'Reading',
+        writing:   'Writing',
+    };
+    const ALL_SKILLS = ['Listening', 'Speaking', 'Reading', 'Writing'];
 
-function getCount(day) {
-    if (day <= 10) return 2;
-    if (day <= 20) return 3;
-    return 4;
-}
+    // ── Step 1: Build sorted module pools per skill ───────────────────────────
+    // Modules sorted ascending by percentage → weakest practiced first.
+    const modulePool = {};
+    for (const [key, label] of Object.entries(SKILL_LABELS)) {
+        const skillData = accuracy?.modules?.[key];
+        let records = [];
 
-function extractModuleData(accuracy) {
-    const modules = accuracy?.modules || {};
-    const result  = {};
-    const skillMap = { listening: 'Listening', speaking: 'Speaking', reading: 'Reading', writing: 'Writing' };
-
-    for (const [key, capitalized] of Object.entries(skillMap)) {
-        const skillData = modules[key];
-        if (skillData && skillData.records && Array.isArray(skillData.records) && skillData.records.length > 0) {
-            result[capitalized] = skillData.records.map(r => ({
-                module_name:  r.module_name  || r.moduleName  || '',
-                module_icon:  r.module_icon  || r.moduleIcon  || '',
-                complexity:   r.complexity   || 'easy',
-                percentage:   parseFloat(r.percentage) || 0,
-                count:        r.count        || 0,
-                course_name:  r.course_name  || r.courseName  || '',
-            }));
+        if (skillData?.records?.length > 0) {
+            records = [...skillData.records]
+                .sort((a, b) =>
+                    (parseFloat(a.percentage) || 0) - (parseFloat(b.percentage) || 0)
+                )
+                .map(r => ({
+                    module_name: r.module_name  || r.moduleName  || '',
+                    module_icon: r.module_icon  || r.moduleIcon  || '',
+                    complexity:  r.complexity   || 'easy',
+                    percentage:  parseFloat(r.percentage) || 0,
+                    count:       r.count        || 0,
+                    course_name: r.course_name  || r.courseName  || '',
+                }));
         } else {
-            result[capitalized] = FALLBACK_MODULES[capitalized].map(name => ({
+            // Use fallback names when this skill has no API records
+            records = FALLBACK_MODULES[label].map(name => ({
                 module_name: name, module_icon: '', complexity: 'easy',
                 percentage: 0, count: 0, course_name: '',
             }));
         }
+        modulePool[label] = records;
     }
-    return result;
-}
 
-function pickModuleRecord(moduleRecords, skill, dayIndex) {
-    const records = moduleRecords[skill] || [];
-    if (records.length === 0) {
-        return { module_name: 'Practice', module_icon: '', complexity: 'easy', percentage: 0, count: 0, course_name: '' };
+    // ── Step 2: Calculate 5-tier skill priority ───────────────────────────────
+    // Lower accuracy → higher priority → appears more often in the path.
+    function getPriority(pct) {
+        if (pct < 40) return 5;   // Critical
+        if (pct < 60) return 4;   // Weak
+        if (pct < 75) return 3;   // Moderate
+        if (pct < 90) return 2;   // Good
+        return 1;                  // Strong (maintenance only)
     }
-    return records[dayIndex % records.length];
-}
 
-function generateSmartPath(accuracy) {
-    const skills    = ['Listening', 'Speaking', 'Reading', 'Writing'];
-    const skillKeys = ['listening', 'speaking', 'reading', 'writing'];
-    const moduleRecords = extractModuleData(accuracy);
+    const skillAccuracy = {
+        Listening: parseFloat(accuracy?.listening) || 50,
+        Speaking:  parseFloat(accuracy?.speaking)  || 50,
+        Reading:   parseFloat(accuracy?.reading)   || 50,
+        Writing:   parseFloat(accuracy?.writing)   || 50,
+    };
 
-    const weights = {};
-    skills.forEach((skill, i) => {
-        const acc = parseFloat(accuracy[skillKeys[i]]) || 50;
-        if (acc < 60)      weights[skill] = 4;
-        else if (acc < 80) weights[skill] = 2;
-        else               weights[skill] = 1;
-    });
+    const priority = {};
+    for (const skill of ALL_SKILLS) {
+        priority[skill] = getPriority(skillAccuracy[skill]);
+    }
 
-    const skillPool = [];
-    Object.entries(weights).forEach(([skill, w]) => {
-        for (let i = 0; i < w; i++) skillPool.push(skill);
-    });
+    // ── Step 3: Build weighted skill pool ────────────────────────────────────
+    // A skill with priority 5 appears 5× in the pool, so it is selected 5× more often.
+    const weightedPool = [];
+    for (const skill of ALL_SKILLS) {
+        for (let i = 0; i < priority[skill]; i++) weightedPool.push(skill);
+    }
+
+    // Sort skills by priority desc for consistent secondary slot filling
+    const skillsByPriority = [...ALL_SKILLS].sort((a, b) => priority[b] - priority[a]);
+
+    // ── Step 4: Independent rotating module indices per skill ─────────────────
+    // Each skill has its own cursor that advances independently,
+    // ensuring no module repeats on back-to-back days.
+    const cursor = { Listening: 0, Speaking: 0, Reading: 0, Writing: 0 };
+
+    function nextModule(skill) {
+        const pool = modulePool[skill];
+        const record = pool[cursor[skill] % pool.length];
+        cursor[skill]++;
+        return record;
+    }
+
+    // ── Step 5: Build 30 days ─────────────────────────────────────────────────
+    const PHASES = [
+        { days: [1,  10], difficulty: 'easy',   taskCount: 3, count: 2, label: 'Foundation' },
+        { days: [11, 20], difficulty: 'medium',  taskCount: 4, count: 3, label: 'Practice'   },
+        { days: [21, 30], difficulty: 'hard',    taskCount: 5, count: 4, label: 'Mastery'    },
+    ];
+
+    function getPhase(day) {
+        return PHASES.find(p => day >= p.days[0] && day <= p.days[1]);
+    }
 
     const path = [];
+
     for (let day = 1; day <= 30; day++) {
-        const difficulty  = getDifficulty(day);
-        const count       = getCount(day);
-        const taskCount   = 3 + Math.floor((day - 1) / 10);
-        const todaySkills = [];
-        const primarySkill = skillPool[(day - 1) % skillPool.length];
-        todaySkills.push(primarySkill);
+        const phase       = getPhase(day);
+        const primarySkill = weightedPool[(day - 1) % weightedPool.length];
 
-        const remaining = skills.filter(s => s !== primarySkill);
-        for (let i = 0; todaySkills.length < Math.min(taskCount, 4); i++) {
-            todaySkills.push(remaining[i % remaining.length]);
-        }
+        // Fill today's skill slots: primary first, then next highest-priority skills
+        const otherSkills  = skillsByPriority.filter(s => s !== primarySkill);
+        const todaySkills  = [primarySkill, ...otherSkills].slice(0, phase.taskCount);
 
-        const tasks = todaySkills.slice(0, taskCount).map((skill, idx) => {
-            const record = pickModuleRecord(moduleRecords, skill, day + idx);
-            return { skill, module: record.module_name, module_icon: record.module_icon,
-                     complexity: record.complexity, course_name: record.course_name, count, difficulty };
+        const tasks = todaySkills.map(skill => {
+            const mod = nextModule(skill);
+            return {
+                skill,
+                module:      mod.module_name,
+                module_icon: mod.module_icon,
+                complexity:  mod.complexity || phase.difficulty,
+                course_name: mod.course_name,
+                count:       phase.count,
+                difficulty:  phase.difficulty,
+            };
         });
 
-        const focusLabels = { easy: 'Foundation', medium: 'Practice', hard: 'Mastery' };
-        path.push({ day, focus: `${tasks[0].skill} ${focusLabels[difficulty]} — Day ${day}`, tasks });
+        const focus = `${primarySkill} ${phase.label} — Day ${day}`;
+        path.push({ day, focus, tasks });
     }
+
     return path;
 }
 
-// ─── Gemini: Generate 30-day learning path ───────────────────────────────────
-async function generatePathWithGemini(accuracy) {
-    const moduleRecords = extractModuleData(accuracy);
-
-    // Summarise real module names per skill for the prompt
-    const moduleSummary = Object.entries(moduleRecords).map(([skill, recs]) => {
-        const names = recs.map(r => r.module_name).filter(Boolean).join(', ') || 'General Practice';
-        return `${skill} modules: ${names}`;
-    }).join('\n');
-
-    const prompt = `
-You are an expert English language learning coach. Generate a personalized 30-day learning path.
-
-Student's current accuracy:
-- Listening: ${accuracy?.listening || 0}%
-- Speaking:  ${accuracy?.speaking  || 0}%
-- Reading:   ${accuracy?.reading   || 0}%
-- Writing:   ${accuracy?.writing   || 0}%
-
-Available modules from the student's course:
-${moduleSummary}
-
-Rules:
-- Skills below 60% are WEAK — give them the most focus (appear most days).
-- Skills 60–80% are MEDIUM — moderate focus.
-- Skills above 80% are STRONG — maintenance only.
-- Days 1–10: difficulty = "easy", 2 tasks/module. Days 11–20: difficulty = "medium", 3 tasks. Days 21–30: difficulty = "hard", 4 tasks.
-- Each day must have 3–5 tasks drawn from the available modules above.
-- Use ONLY the exact module names listed above (copy them exactly).
-- Vary the tasks day to day — do not repeat the same module on consecutive days.
-
-Return ONLY a valid JSON array of exactly 30 objects. No markdown, no backticks, no explanation.
-Each object must match this exact structure:
-{
-  "day": 1,
-  "focus": "Listening Foundation — Day 1",
-  "tasks": [
-    { "skill": "Listening", "module": "Audio Comprehension", "difficulty": "easy", "count": 2 }
-  ]
-}
-`;
-
-    const result  = await geminiModel.generateContent(prompt);
-    const rawText = result.response.text().trim();
-
-    // Strip markdown fences Gemini sometimes wraps around JSON
-    let jsonText = rawText
-        .replace(/^```(?:json)?\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .trim();
-
-    // Some Gemini versions return { "path": [...] } or { "days": [...] } — unwrap if needed
-    let parsed = JSON.parse(jsonText);
-    if (!Array.isArray(parsed)) {
-        // Try to find an array inside a wrapper object
-        const inner = Object.values(parsed).find(v => Array.isArray(v));
-        if (inner) parsed = inner;
-        else throw new Error(`Gemini returned a non-array: ${JSON.stringify(parsed).slice(0, 200)}`);
-    }
-    if (parsed.length < 25) {
-        // Accept 25+ days (Gemini occasionally returns 28-30)
-        throw new Error(`Gemini returned only ${parsed.length} days (expected 30)`);
-    }
-
-    // Enrich tasks with module_icon from real API data (Gemini only knows module names)
-    const iconMap = {};
-    Object.values(moduleRecords).forEach(recs => {
-        recs.forEach(r => { if (r.module_name) iconMap[r.module_name] = r.module_icon || ''; });
-    });
-
-    return parsed.map(dayPlan => ({
-        ...dayPlan,
-        tasks: (dayPlan.tasks || []).map(task => ({
-            ...task,
-            module_icon: iconMap[task.module] || '',
-        })),
-    }));
-}
-
 // ─── Routes ──────────────────────────────────────────────────────────────────
-
-// ── Debug: verify Gemini API key is working ──────────────────────────────────
-app.get('/api/test-gemini', async (req, res) => {
-    try {
-        const result  = await geminiModel.generateContent('Reply with exactly the word: OK');
-        const text    = result.response.text().trim();
-        res.json({ status: 'ok', gemini_reply: text, key_prefix: (process.env.GEMINI_API_KEY || '').slice(0, 8) + '...' });
-    } catch (err) {
-        res.status(500).json({ status: 'error', message: err.message });
-    }
-});
 
 app.post('/api/get-learning-path', async (req, res) => {
     try {
@@ -267,16 +218,17 @@ app.post('/api/generate-learning-path', async (req, res) => {
     try {
         const { user_id, accuracy } = req.body;
 
+        if (!user_id) {
+            return res.status(400).json({ error: 'user_id is required.' });
+        }
+
         const existingPath = await LearningPath.findOne({ user_id, status: 'active' });
         if (existingPath) {
             return res.status(400).json({ error: 'Active path exists.' });
         }
 
-        console.log(`[Gemini] Generating 30-day path for user: ${user_id}`);
-        // Throws clearly if Gemini fails — no silent fallback, so errors are visible
-        const generatedPath = await generatePathWithGemini(accuracy || {});
-        console.log(`[Gemini] Path generated successfully for user: ${user_id}`);
-        const source = 'gemini';
+        console.log(`[PathGen] Generating 30-day path for user: ${user_id}`);
+        const generatedPath = generateSmartPath(accuracy || {});
 
         const newPath = new LearningPath({
             user_id,
@@ -296,12 +248,11 @@ app.post('/api/generate-learning-path', async (req, res) => {
         });
 
         const savedDoc = await newPath.save();
-        console.log(`[${source}] 30-day path saved for user: ${user_id}`);
-        // Include source so the client knows which engine generated the path
-        res.json({ ...savedDoc.toObject(), _source: source });
+        console.log(`[PathGen] 30-day path saved for user: ${user_id}`);
+        res.json(savedDoc);
 
     } catch (error) {
-        console.error('Generate path error:', error.message);
+        console.error('[PathGen] Error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
