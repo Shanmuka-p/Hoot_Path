@@ -247,9 +247,9 @@ app.post('/api/generate-learning-path', async (req, res) => {
         console.log("Calling local Ollama to generate path...");
         
         // Use the built-in fetch API (available in Node.js 18+)
-        const response = await fetch('http:/`/localhost`:`11434/api/generate`', {
+        const response = await fetch('http://localhost:11434/api/generate', {
             method: 'POST',
-            headers: { 'Content-Type': '`application/json`' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'llama3', // The model you downloaded
                 prompt: prompt,
