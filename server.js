@@ -254,7 +254,7 @@ app.post('/api/generate-learning-path', async (req, res) => {
                 'ngrok-skip-browser-warning': 'true'
             },
             body: JSON.stringify({
-                model: 'llama3', 
+                model: 'llama3.2:1b', 
                 prompt: prompt,
                 stream: false,   
                 format: 'json'   
