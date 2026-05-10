@@ -243,12 +243,35 @@ async function callOpenRouter(prompt, apiKey, model) {
  * On rate-limit or invalid response: automatically tries the next combination.
  * Returns { path, model } on success, or throws if all attempts are exhausted.
  */
+/**
+ * Collects all OpenRouter API keys from environment variables.
+ * Supports two formats (both can be used together):
+ *   Format 1 — individual vars:  OPENROUTER_KEY, OPENROUTER_KEY1, OPENROUTER_KEY2, ...
+ *   Format 2 — comma-separated:  OPENROUTER_KEYS=sk-or-xxx,sk-or-yyy
+ */
+function collectApiKeys() {
+    const found = new Set();
+
+    // Format 1: OPENROUTER_KEY (no suffix), OPENROUTER_KEY1 … OPENROUTER_KEY9
+    if (process.env.OPENROUTER_KEY)  found.add(process.env.OPENROUTER_KEY.trim());
+    for (let i = 1; i <= 9; i++) {
+        const val = process.env[`OPENROUTER_KEY${i}`];
+        if (val) found.add(val.trim());
+    }
+
+    // Format 2: OPENROUTER_KEYS=key1,key2,...
+    (process.env.OPENROUTER_KEYS || '')
+        .split(',').map(k => k.trim()).filter(Boolean)
+        .forEach(k => found.add(k));
+
+    return [...found];
+}
+
 async function generateWithFallback(accuracy) {
-    const keys = (process.env.OPENROUTER_KEYS || '')
-        .split(',').map(k => k.trim()).filter(Boolean);
+    const keys = collectApiKeys();
 
     if (keys.length === 0) {
-        throw new Error('No OPENROUTER_KEYS configured. Add keys in Render Dashboard → Environment.');
+        throw new Error('No OpenRouter keys configured. Add OPENROUTER_KEY or OPENROUTER_KEY1 in Render Dashboard → Environment.');
     }
 
     const models = process.env.OPENROUTER_MODELS
