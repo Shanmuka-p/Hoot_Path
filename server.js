@@ -1,7 +1,7 @@
 require('dotenv').config();
-const express  = require('express');
-const mongoose = require('mongoose');
-const cors     = require('cors');
+const express    = require('express');
+const mongoose   = require('mongoose');
+const cors       = require('cors');
 const LearningPath = require('./models/LearningPath');
 
 const app = express();
@@ -34,38 +34,34 @@ const FALLBACK_MODULES = {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  PERSONALIZED PATH GENERATOR — Condition Engine
+//  PERSONALIZED PATH GENERATOR  —  4-Layer Condition Engine
 // ═════════════════════════════════════════════════════════════════════════════
-/**
- * Generates a 30-day personalized path using a multi-layer condition engine:
- *
- * LAYER 1 — Skill-level conditions (based on overall % for L/S/R/W):
- *   Critical < 40%  → Priority ×5, intensive focus in all 3 phases
- *   Weak     40-60% → Priority ×4, heavy early-phase emphasis
- *   Moderate 60-75% → Priority ×3, balanced across phases
- *   Good     75-90% → Priority ×2, lighter touch, maintenance
- *   Strong   ≥ 90%  → Priority ×1, spaced review only
- *
- * LAYER 2 — Module-level conditions (based on module %, count, complexity):
- *   Score = (100 - pct) × 0.6             → weak modules score higher
- *         + count bonus (0 attempts = +30) → untouched modules get urgent slot
- *         + complexity bonus              → easy modules slightly more urgent
- *   Modules are sorted by score descending → weakest always scheduled first
- *
- * LAYER 3 — Phase-aware module selection:
- *   Modules are bucketed into 3 learning phases by their complexity:
- *     easy   → Phase 1 (Foundation, days 1-10)
- *     medium → Phase 2 (Practice,   days 11-20)
- *     hard   → Phase 3 (Mastery,    days 21-30)
- *   Within each phase, modules with score < 50% are doubled-up (appear twice)
- *   to ensure the student revisits their worst modules before moving forward.
- *
- * LAYER 4 — Smart focus labels:
- *   The "focus" label for each day reflects the actual condition of the
- *   primary skill (e.g., "Speaking: Emergency Focus — Day 3")
- */
+//
+//  LAYER 1  Skill-level tier (overall % per L/S/R/W):
+//    Critical  < 40%  → priority ×5  "Emergency Focus"
+//    Weak     40-60%  → priority ×4  "Intensive Practice"
+//    Moderate 60-75%  → priority ×3  "Skill Building"
+//    Good     75-90%  → priority ×2  "Refinement"
+//    Strong   ≥ 90%   → priority ×1  "Mastery Review"
+//
+//  LAYER 2  Module-level score (per individual module record):
+//    score = (100 - pct) × 0.6    → weak accuracy → high urgency
+//          + 30  if count === 0   → never attempted → critical slot
+//          + 15  if count <  3   → barely touched
+//          + 5   if count <  7   → some exposure
+//          + 5   if complexity === 'easy'
+//          - 5   if complexity === 'hard'
+//    Modules with percentage < 50 are doubled for extra repetition.
+//
+//  LAYER 3  Phase-aware scheduling:
+//    easy   → Phase 1  Foundation  days  1-10  (3 tasks/day)
+//    medium → Phase 2  Practice    days 11-20  (4 tasks/day)
+//    hard   → Phase 3  Mastery     days 21-30  (5 tasks/day)
+//
+//  LAYER 4  Smart focus labels:
+//    "Speaking: Emergency Focus — Day 3"  (not a generic label)
+// ─────────────────────────────────────────────────────────────────────────────
 function generateSmartPath(accuracy) {
-
     const SKILL_LABELS = {
         listening: 'Listening',
         speaking:  'Speaking',
@@ -74,37 +70,35 @@ function generateSmartPath(accuracy) {
     };
     const ALL_SKILLS = ['Listening', 'Speaking', 'Reading', 'Writing'];
 
-    // ── CONDITION HELPERS ────────────────────────────────────────────────────
-
-    /** LAYER 1: skill-level classification */
+    // ── LAYER 1: skill classification ─────────────────────────────────────────
     function classifySkill(pct) {
-        if (pct < 40) return { tier: 'Critical',  priority: 5, verb: 'Emergency Focus'  };
-        if (pct < 60) return { tier: 'Weak',      priority: 4, verb: 'Intensive Practice'};
-        if (pct < 75) return { tier: 'Moderate',  priority: 3, verb: 'Skill Building'   };
-        if (pct < 90) return { tier: 'Good',      priority: 2, verb: 'Refinement'       };
-        return             { tier: 'Strong',     priority: 1, verb: 'Mastery Review'   };
+        if (pct < 40) return { tier: 'Critical',  priority: 5, verb: 'Emergency Focus'   };
+        if (pct < 60) return { tier: 'Weak',      priority: 4, verb: 'Intensive Practice' };
+        if (pct < 75) return { tier: 'Moderate',  priority: 3, verb: 'Skill Building'    };
+        if (pct < 90) return { tier: 'Good',      priority: 2, verb: 'Refinement'        };
+        return             { tier: 'Strong',     priority: 1, verb: 'Mastery Review'    };
     }
 
-    /** LAYER 2: module-level priority score — higher = scheduled sooner & more often */
-    function moduleScore(pct, count, complexity) {
-        let score = (100 - pct) * 0.6;          // low accuracy → high score
-        if (count === 0)      score += 30;       // never attempted → urgent
-        else if (count < 3)   score += 15;       // barely touched
-        else if (count < 7)   score += 5;        // some exposure
-        if (complexity === 'easy')   score += 5; // easy first
-        else if (complexity === 'hard') score -= 5; // hard later
+    // ── LAYER 2: module priority score ────────────────────────────────────────
+    function calcModuleScore(pct, count, complexity) {
+        let score = (100 - pct) * 0.6;
+        if (count === 0)      score += 30;
+        else if (count < 3)   score += 15;
+        else if (count < 7)   score += 5;
+        if (complexity === 'easy')   score += 5;
+        if (complexity === 'hard')   score -= 5;
         return score;
     }
 
-    /** LAYER 3: which learning phase this module belongs to */
-    function modulePhase(complexity, pct) {
-        if (complexity === 'hard')   return 3;   // hard → Mastery
-        if (complexity === 'medium') return 2;   // medium → Practice
-        return 1;                                 // easy or unset → Foundation
+    // ── LAYER 3: preferred phase by complexity ────────────────────────────────
+    function preferredPhase(complexity) {
+        if (complexity === 'hard')   return 3;
+        if (complexity === 'medium') return 2;
+        return 1;
     }
 
-    // ── STEP 1: Parse & score all modules from API data ──────────────────────
-    const modulePool = {};   // { Listening: [...sorted records], ... }
+    // ── STEP 1: Parse & score modules from API data ───────────────────────────
+    const modulePool = {};
 
     for (const [key, label] of Object.entries(SKILL_LABELS)) {
         const skillData = accuracy?.modules?.[key];
@@ -116,25 +110,24 @@ function generateSmartPath(accuracy) {
                 const count      = r.count || 0;
                 const complexity = r.complexity || 'easy';
                 return {
-                    module_name:     r.module_name  || r.moduleName  || '',
-                    module_icon:     r.module_icon  || r.moduleIcon  || '',
+                    module_name: r.module_name  || r.moduleName  || '',
+                    module_icon: r.module_icon  || r.moduleIcon  || '',
                     complexity,
-                    percentage:      pct,
+                    percentage:  pct,
                     count,
-                    course_name:     r.course_name  || r.courseName  || '',
-                    _score:          moduleScore(pct, count, complexity),
-                    _phase:          modulePhase(complexity, pct),
+                    course_name: r.course_name  || r.courseName  || '',
+                    _score:      calcModuleScore(pct, count, complexity),
+                    _phase:      preferredPhase(complexity),
                 };
             });
 
-            // Sort by score descending: weakest / untouched modules first
+            // Sort highest-score first (weakest / untouched modules at the front)
             records.sort((a, b) => b._score - a._score);
 
-            // Double-up modules where percentage < 50 so they get extra repetition
-            const urgentMods = records.filter(r => r.percentage < 50);
-            records = [...urgentMods, ...records];
+            // Double-up urgent modules (< 50%) for extra repetition
+            const urgent = records.filter(r => r.percentage < 50);
+            records = [...urgent, ...records];
         } else {
-            // Fallback: generate placeholder records
             records = FALLBACK_MODULES[label].map((name, i) => ({
                 module_name: name, module_icon: '', complexity: 'easy',
                 percentage: 0, count: 0, course_name: '',
@@ -145,7 +138,7 @@ function generateSmartPath(accuracy) {
         modulePool[label] = records;
     }
 
-    // ── STEP 2: Classify each skill and build weighted pool ───────────────────
+    // ── STEP 2: Classify skills & build weighted scheduling pool ──────────────
     const skillAccuracy = {
         Listening: parseFloat(accuracy?.listening) || 50,
         Speaking:  parseFloat(accuracy?.speaking)  || 50,
@@ -154,47 +147,32 @@ function generateSmartPath(accuracy) {
     };
 
     const skillInfo = {};
-    for (const skill of ALL_SKILLS) {
-        skillInfo[skill] = classifySkill(skillAccuracy[skill]);
-    }
+    for (const s of ALL_SKILLS) skillInfo[s] = classifySkill(skillAccuracy[s]);
 
-    // Weighted pool: a skill with priority 5 appears 5× more than one with priority 1
     const weightedPool = [];
-    for (const skill of ALL_SKILLS) {
-        for (let i = 0; i < skillInfo[skill].priority; i++) {
-            weightedPool.push(skill);
-        }
+    for (const s of ALL_SKILLS) {
+        for (let i = 0; i < skillInfo[s].priority; i++) weightedPool.push(s);
     }
 
-    // Sorted order for filling secondary task slots each day
     const skillsByPriority = [...ALL_SKILLS].sort(
         (a, b) => skillInfo[b].priority - skillInfo[a].priority
     );
 
-    // ── STEP 3: Bucket modules per skill per phase ────────────────────────────
-    // Each [skill][phase] bucket gets its own rotating cursor so modules
-    // within a phase advance independently and don't repeat on consecutive days.
-    const phaseBuckets = {};
-    const cursor       = {};
-
-    for (const skill of ALL_SKILLS) {
-        phaseBuckets[skill] = { 1: [], 2: [], 3: [] };
-        cursor[skill]       = { 1: 0, 2: 0, 3: 0 };
-
-        for (const mod of modulePool[skill]) {
-            phaseBuckets[skill][mod._phase].push(mod);
-        }
-
-        // Ensure no phase is empty (fall back to all modules if needed)
+    // ── STEP 3: Bucket modules per skill × phase, each with its own cursor ────
+    const buckets = {};
+    const cursor  = {};
+    for (const s of ALL_SKILLS) {
+        buckets[s] = { 1: [], 2: [], 3: [] };
+        cursor[s]  = { 1: 0,  2: 0,  3: 0  };
+        for (const mod of modulePool[s]) buckets[s][mod._phase].push(mod);
+        // Fill any empty phase bucket as a fallback
         for (const ph of [1, 2, 3]) {
-            if (phaseBuckets[skill][ph].length === 0) {
-                phaseBuckets[skill][ph] = [...modulePool[skill]];
-            }
+            if (buckets[s][ph].length === 0) buckets[s][ph] = [...modulePool[s]];
         }
     }
 
     function nextModule(skill, phase) {
-        const bucket = phaseBuckets[skill][phase];
+        const bucket = buckets[skill][phase];
         const mod    = bucket[cursor[skill][phase] % bucket.length];
         cursor[skill][phase]++;
         return mod;
@@ -202,22 +180,17 @@ function generateSmartPath(accuracy) {
 
     // ── STEP 4: Build the 30-day plan ─────────────────────────────────────────
     const PHASE_DEFS = [
-        { range: [1,  10], phaseNum: 1, difficulty: 'easy',   taskCount: 3, count: 2, label: 'Foundation' },
-        { range: [11, 20], phaseNum: 2, difficulty: 'medium', taskCount: 4, count: 3, label: 'Practice'   },
-        { range: [21, 30], phaseNum: 3, difficulty: 'hard',   taskCount: 5, count: 4, label: 'Mastery'    },
+        { range: [1,  10], phaseNum: 1, difficulty: 'easy',   taskCount: 3, count: 2 },
+        { range: [11, 20], phaseNum: 2, difficulty: 'medium', taskCount: 4, count: 3 },
+        { range: [21, 30], phaseNum: 3, difficulty: 'hard',   taskCount: 5, count: 4 },
     ];
-
-    function getPhase(day) {
-        return PHASE_DEFS.find(p => day >= p.range[0] && day <= p.range[1]);
-    }
 
     const path = [];
 
     for (let day = 1; day <= 30; day++) {
-        const phase        = getPhase(day);
+        const phase        = PHASE_DEFS.find(p => day >= p.range[0] && day <= p.range[1]);
         const primarySkill = weightedPool[(day - 1) % weightedPool.length];
 
-        // Primary skill fills slot 0; remaining slots go to next highest-priority skills
         const otherSkills = skillsByPriority.filter(s => s !== primarySkill);
         const todaySkills = [primarySkill, ...otherSkills].slice(0, phase.taskCount);
 
@@ -234,10 +207,8 @@ function generateSmartPath(accuracy) {
             };
         });
 
-        // LAYER 4: Smart focus label reflects the actual skill condition
-        const info  = skillInfo[primarySkill];
-        const focus = `${primarySkill}: ${info.verb} — Day ${day}`;
-
+        // LAYER 4: smart label reflects the actual skill tier
+        const focus = `${primarySkill}: ${skillInfo[primarySkill].verb} — Day ${day}`;
         path.push({ day, focus, tasks });
     }
 
@@ -249,31 +220,11 @@ function generateSmartPath(accuracy) {
 app.post('/api/get-learning-path', async (req, res) => {
     try {
         const { user_id } = req.body;
-        const activePath  = await LearningPath.findOne({ user_id, status: 'active' });
+        if (!user_id) return res.status(400).json({ error: 'user_id is required.' });
+
+        const activePath = await LearningPath.findOne({ user_id, status: 'active' });
         if (activePath) return res.json({ exists: true, path: activePath });
         return res.json({ exists: false });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/complete-day', async (req, res) => {
-    try {
-        const { user_id, day } = req.body;
-        const activePath = await LearningPath.findOne({ user_id, status: 'active' });
-        if (!activePath) return res.status(404).json({ error: 'No active path found' });
-
-        const dayIndex = activePath.path.findIndex(d => d.day === day);
-        if (dayIndex === -1) return res.status(400).json({ error: 'Invalid day' });
-
-        activePath.path[dayIndex].completed    = true;
-        activePath.path[dayIndex].completed_at = new Date();
-
-        const allCompleted = activePath.path.every(d => d.completed);
-        if (allCompleted) activePath.status = 'completed';
-
-        await activePath.save();
-        res.json({ success: true, path_completed: allCompleted });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -292,7 +243,7 @@ app.post('/api/generate-learning-path', async (req, res) => {
             return res.status(400).json({ error: 'Active path exists.' });
         }
 
-        console.log(`[PathGen] Building personalized 30-day path for user: ${user_id}`);
+        console.log(`[PathGen] Building personalized path for user: ${user_id}`);
         const generatedPath = generateSmartPath(accuracy || {});
 
         const newPath = new LearningPath({
@@ -312,14 +263,42 @@ app.post('/api/generate-learning-path', async (req, res) => {
             })),
         });
 
-// ── App Setup ─────────────────────────────────────────────────────────────────
-const app = express();
-app.use(express.json());
-app.use(cors());
+        const savedDoc = await newPath.save();
+        console.log(`[PathGen] Path saved for user: ${user_id}`);
+        res.json(savedDoc);
 
-// ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api', learningPathRoutes);
+    } catch (error) {
+        console.error('[PathGen] Error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
 
-// ── Server ────────────────────────────────────────────────────────────────────
+app.post('/api/complete-day', async (req, res) => {
+    try {
+        const { user_id, day } = req.body;
+        if (!user_id || day == null) {
+            return res.status(400).json({ error: 'user_id and day are required.' });
+        }
+
+        const activePath = await LearningPath.findOne({ user_id, status: 'active' });
+        if (!activePath) return res.status(404).json({ error: 'No active path found.' });
+
+        const dayIndex = activePath.path.findIndex(d => d.day === day);
+        if (dayIndex === -1) return res.status(400).json({ error: 'Invalid day.' });
+
+        activePath.path[dayIndex].completed    = true;
+        activePath.path[dayIndex].completed_at = new Date();
+
+        const allDone = activePath.path.every(d => d.completed);
+        if (allDone) activePath.status = 'completed';
+
+        await activePath.save();
+        res.json({ success: true, path_completed: allDone });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
