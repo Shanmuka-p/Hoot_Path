@@ -5,10 +5,13 @@ services:
     buildCommand: npm install
     startCommand: node server.js
     # ⚠️  Do NOT store real credentials here.
-    # Set MONGO_URI and PORT in the Render dashboard under Environment → Secret Files.
-    # This file only documents which keys the service needs.
+    # Set all values below in the Render Dashboard → Environment.
     envVars:
       - key: MONGO_URI
-        sync: false       # Set the actual value in Render Dashboard → Environment
+        sync: false       # MongoDB Atlas URI — set in Render Dashboard
+      - key: OPENROUTER_KEYS
+        sync: false       # Comma-separated OpenRouter API keys — set in Render Dashboard
+      - key: OPENROUTER_MODELS
+        sync: false       # (Optional) Override free model list — set in Render Dashboard
       - key: PORT
         value: 5001
