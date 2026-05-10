@@ -16,9 +16,10 @@ mongoose.connect(process.env.MONGO_URI, {
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.log('MongoDB Error:', err));
 
-// ─── Smart Path Generator (no external AI needed) ────────────────────────────
+// ─── Smart Path Generator (uses real API module data) ─────────────────────────
 
-const SKILL_MODULES = {
+// Fallback module names — only used if no real API data is provided
+const FALLBACK_MODULES = {
     Listening: [
         'Audio Comprehension', 'Podcast Listening', 'Lecture Notes',
         'Dialogue Practice', 'Story Listening', 'News Listening',
@@ -53,13 +54,52 @@ function getCount(day) {
     return 4;
 }
 
-function pickModule(skill, dayIndex) {
-    const modules = SKILL_MODULES[skill];
-    return modules[dayIndex % modules.length];
+/**
+ * Extract real module records from the API data sent by the client.
+ * Returns a map like { Listening: [{module_name, module_icon, complexity, ...}], ... }
+ */
+function extractModuleData(accuracy) {
+    const modules = accuracy?.modules || {};
+    const result = {};
+    const skillMap = { listening: 'Listening', speaking: 'Speaking', reading: 'Reading', writing: 'Writing' };
+
+    for (const [key, capitalized] of Object.entries(skillMap)) {
+        const skillData = modules[key];
+        if (skillData && skillData.records && Array.isArray(skillData.records) && skillData.records.length > 0) {
+            result[capitalized] = skillData.records.map(r => ({
+                module_name:  r.module_name || r.moduleName || '',
+                module_icon:  r.module_icon || r.moduleIcon || '',
+                complexity:   r.complexity || 'easy',
+                percentage:   parseFloat(r.percentage) || 0,
+                count:        r.count || 0,
+                course_name:  r.course_name || r.courseName || '',
+            }));
+        } else {
+            // Fallback: build records from fallback names
+            result[capitalized] = FALLBACK_MODULES[capitalized].map(name => ({
+                module_name: name,
+                module_icon: '',
+                complexity: 'easy',
+                percentage: 0,
+                count: 0,
+                course_name: '',
+            }));
+        }
+    }
+    return result;
+}
+
+function pickModuleRecord(moduleRecords, skill, dayIndex) {
+    const records = moduleRecords[skill] || [];
+    if (records.length === 0) {
+        return { module_name: 'Practice', module_icon: '', complexity: 'easy', percentage: 0, count: 0, course_name: '' };
+    }
+    return records[dayIndex % records.length];
 }
 
 /**
  * Generates a personalized 30-day learning path based on accuracy data.
+ * Uses REAL module names from the API data (accuracy.modules).
  * - Weak skills (<60%) → prioritized, more daily tasks
  * - Medium skills (60-80%) → moderate focus
  * - Strong skills (>80%) → maintenance only
@@ -67,6 +107,9 @@ function pickModule(skill, dayIndex) {
 function generateSmartPath(accuracy) {
     const skills = ['Listening', 'Speaking', 'Reading', 'Writing'];
     const skillKeys = ['listening', 'speaking', 'reading', 'writing'];
+
+    // Extract real module records from API data
+    const moduleRecords = extractModuleData(accuracy);
 
     // Build weight for each skill based on accuracy (inverse — lower = more focus)
     const weights = {};
@@ -101,13 +144,19 @@ function generateSmartPath(accuracy) {
             todaySkills.push(remaining[i % remaining.length]);
         }
 
-        // Build tasks
-        const tasks = todaySkills.slice(0, taskCount).map((skill, idx) => ({
-            skill,
-            module: pickModule(skill, day + idx),
-            count,
-            difficulty,
-        }));
+        // Build tasks using real module data from the API
+        const tasks = todaySkills.slice(0, taskCount).map((skill, idx) => {
+            const record = pickModuleRecord(moduleRecords, skill, day + idx);
+            return {
+                skill,
+                module: record.module_name,
+                module_icon: record.module_icon,
+                complexity: record.complexity,
+                course_name: record.course_name,
+                count,
+                difficulty,
+            };
+        });
 
         // Focus label
         const focusSkill = tasks[0].skill;

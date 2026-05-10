@@ -31,15 +31,27 @@ const _skillIcons = <String, IconData>{
   'writing':   Icons.edit_outlined,
 };
 
+// Sub-module fallback icons per skill
+const _subModuleIcons = <String, IconData>{
+  'listening': Icons.headphones,
+  'speaking':  Icons.record_voice_over,
+  'reading':   Icons.chrome_reader_mode,
+  'writing':   Icons.draw,
+};
+
 // ─── Skill Detail Sheet ───────────────────────────────────────────────────────
 class SkillDetailSheet extends StatelessWidget {
-  final String skillName;       // e.g. 'listening'
+  final String skillName;         // e.g. 'listening'
   final SkillDetail skillDetail;
+  /// The percentage shown on the main dashboard (from the overall API).
+  /// This ensures header + gauge match what the user sees outside.
+  final double overallPercentage;
 
   const SkillDetailSheet({
     super.key,
     required this.skillName,
     required this.skillDetail,
+    required this.overallPercentage,
   });
 
   String get _key => skillName.toLowerCase();
@@ -84,7 +96,9 @@ class SkillDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct         = skillDetail.percentage;
+    // Use the overall API percentage (same as dashboard) for header & gauge.
+    // Individual module records keep their own per-module percentages.
+    final pct         = overallPercentage;
     final status      = _statusLabel(pct);
     final statusColor = _statusColor(pct);
 
@@ -261,6 +275,7 @@ class SkillDetailSheet extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _ModuleCard(
                           record: rec,
+                          skillName: _key,
                           skillColor: _color,
                           complexityColor: cc,
                           complexityLabel: cl,
@@ -317,11 +332,13 @@ class _GaugePainter extends CustomPainter {
 // ─── Module Card ──────────────────────────────────────────────────────────────
 class _ModuleCard extends StatelessWidget {
   final ModuleRecord record;
+  final String skillName;       // e.g. 'listening'
   final Color skillColor, complexityColor;
   final String complexityLabel;
 
   const _ModuleCard({
     required this.record,
+    required this.skillName,
     required this.skillColor,
     required this.complexityColor,
     required this.complexityLabel,
@@ -343,16 +360,8 @@ class _ModuleCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Module icon (from URL or fallback)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: record.moduleIcon.isNotEmpty
-                    ? Image.network(
-                        record.moduleIcon, width: 36, height: 36, fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => _iconFallback(skillColor),
-                      )
-                    : _iconFallback(skillColor),
-              ),
+              // Module icon: network image with loading + skill-specific fallback
+              _buildModuleIcon(),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -399,11 +408,50 @@ class _ModuleCard extends StatelessWidget {
     );
   }
 
-  Widget _iconFallback(Color color) {
+  Widget _buildModuleIcon() {
+    final iconData = _subModuleIcons[skillName] ?? Icons.school_outlined;
+    if (record.moduleIcon.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          record.moduleIcon,
+          width: 36,
+          height: 36,
+          fit: BoxFit.contain,
+          loadingBuilder: (_, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return SizedBox(
+              width: 36,
+              height: 36,
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: skillColor,
+                ),
+              ),
+            );
+          },
+          errorBuilder: (_, __, ___) => _skillIconFallback(iconData),
+        ),
+      );
+    }
+    return _skillIconFallback(iconData);
+  }
+
+  /// Skill-appropriate icon fallback (no more puzzle piece!)
+  Widget _skillIconFallback(IconData iconData) {
     return Container(
-      width: 36, height: 36,
-      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
-      child: Icon(Icons.extension_rounded, color: color, size: 18),
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: skillColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(iconData, color: skillColor, size: 20),
     );
   }
 }

@@ -23,17 +23,17 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
   final LearningPathService _service = LearningPathService();
   bool _isLoading = false;
 
-  Color _getIconColor(String skill) {
+  Color _getSkillColor(String skill) {
     switch (skill.toLowerCase()) {
-      case 'listening': return const Color(0xFF5B6CF9);
-      case 'speaking': return const Color(0xFFFF6B6B);
-      case 'reading': return const Color(0xFF26C6DA);
-      case 'writing': return const Color(0xFFFFB300);
+      case 'listening': return const Color(0xFF008738);
+      case 'speaking': return const Color(0xFFFFBB00);
+      case 'reading': return const Color(0xFF72BD20);
+      case 'writing': return const Color(0xFF2196F3);
       default: return Colors.grey;
     }
   }
 
-  IconData _getIconData(String skill) {
+  IconData _getSkillIcon(String skill) {
     switch (skill.toLowerCase()) {
       case 'listening': return Icons.headphones;
       case 'speaking': return Icons.mic;
@@ -42,6 +42,18 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
       default: return Icons.task;
     }
   }
+
+  Color _getComplexityColor(String complexity) {
+    switch (complexity.toLowerCase()) {
+      case 'easy': return const Color(0xFF4CAF50);
+      case 'medium': return const Color(0xFFFFA726);
+      case 'hard': return const Color(0xFFEF5350);
+      default: return Colors.grey;
+    }
+  }
+
+  String _getComplexityLabel(String c) =>
+      c.isEmpty ? 'Easy' : c[0].toUpperCase() + c.substring(1).toLowerCase();
 
   Future<void> _markComplete() async {
     final confirm = await showDialog<bool>(
@@ -72,6 +84,38 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
         );
       }
     }
+  }
+
+  Widget _buildModuleIcon(Map<String, dynamic> task) {
+    final String moduleIcon = task['module_icon'] as String? ?? '';
+    final String skill = task['skill'] as String? ?? '';
+    final Color skillColor = _getSkillColor(skill);
+
+    if (moduleIcon.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(
+          moduleIcon,
+          width: 42,
+          height: 42,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => _iconFallback(skill, skillColor),
+        ),
+      );
+    }
+    return _iconFallback(skill, skillColor);
+  }
+
+  Widget _iconFallback(String skill, Color color) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(_getSkillIcon(skill), color: color, size: 22),
+    );
   }
 
   @override
@@ -106,18 +150,106 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
                     padding: const EdgeInsets.all(16),
                     itemCount: tasks.length,
                     itemBuilder: (context, index) {
-                      final task = tasks[index];
+                      final task = tasks[index] is Map<String, dynamic>
+                          ? tasks[index] as Map<String, dynamic>
+                          : (tasks[index] as Map).cast<String, dynamic>();
                       final skill = task['skill'] as String? ?? '';
-                      return Card(
+                      final moduleName = task['module'] as String? ?? 'Module';
+                      final complexity = task['complexity'] as String? ?? task['difficulty'] as String? ?? 'easy';
+                      final courseName = task['course_name'] as String? ?? '';
+                      final skillColor = _getSkillColor(skill);
+                      final complexityColor = _getComplexityColor(complexity);
+
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: _getIconColor(skill).withOpacity(0.2),
-                            child: Icon(_getIconData(skill), color: _getIconColor(skill)),
-                          ),
-                          title: Text('${task['module']}'),
-                          subtitle: Text('Skill: $skill | Difficulty: ${task['difficulty']}'),
-                          trailing: Text('x${task['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                // Module icon (from API URL or fallback)
+                                _buildModuleIcon(task),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        moduleName,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1A1A1A),
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          // Skill badge
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: skillColor.withOpacity(0.12),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              skill,
+                                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: skillColor),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          // Complexity badge
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: complexityColor.withOpacity(0.12),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              _getComplexityLabel(complexity),
+                                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: complexityColor),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'x${task['count']}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (courseName.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                courseName,
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ],
+                          ],
                         ),
                       );
                     },

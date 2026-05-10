@@ -107,7 +107,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return others.first.key;
   }
 
-  void _openSkillSheet(String skill) {
+  void _openSkillSheet(String skill, double overallPct) {
     if (_individual == null) return;
     showModalBottomSheet(
       context: context,
@@ -116,6 +116,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       builder: (_) => SkillDetailSheet(
         skillName: skill,
         skillDetail: _individual!.detailFor(skill),
+        overallPercentage: overallPct,
       ),
     );
   }
@@ -239,7 +240,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     statusLabel: _statusLabel(overallPct),
                     statusColor: _statusColor(overallPct),
                     insightText: _insightText(overall),
-                    onSkillTap: _openSkillSheet,
+                    // Pass the overall API percentage for each skill so the
+                    // bottom sheet gauge matches the dashboard value.
+                    onSkillTap: (skill) {
+                      final pct = <String, double>{
+                        'listening': lPct,
+                        'speaking':  sPct,
+                        'reading':   rPct,
+                        'writing':   wPct,
+                      }[skill] ?? 0;
+                      _openSkillSheet(skill, pct);
+                    },
                   ),
                   const SizedBox(height: 16),
 
@@ -895,10 +906,10 @@ class _ContinueButton extends StatelessWidget {
                   "reading": overall.reading?.percentage ?? 0,
                   "writing": overall.writing?.percentage ?? 0,
                   "modules": {
-                    "listening": individual.listening,
-                    "speaking": individual.speaking,
-                    "reading": individual.reading,
-                    "writing": individual.writing,
+                    "listening": individual.listening.toJson(),
+                    "speaking": individual.speaking.toJson(),
+                    "reading": individual.reading.toJson(),
+                    "writing": individual.writing.toJson(),
                   }, 
                 };
 
