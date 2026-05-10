@@ -312,15 +312,14 @@ app.post('/api/generate-learning-path', async (req, res) => {
             })),
         });
 
-        const savedDoc = await newPath.save();
-        console.log(`[PathGen] 30-day path saved for user: ${user_id}`);
-        res.json(savedDoc);
+// ── App Setup ─────────────────────────────────────────────────────────────────
+const app = express();
+app.use(express.json());
+app.use(cors());
 
-    } catch (error) {
-        console.error('[PathGen] Error:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
+// ── Routes ────────────────────────────────────────────────────────────────────
+app.use('/api', learningPathRoutes);
 
+// ── Server ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
