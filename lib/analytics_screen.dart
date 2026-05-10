@@ -895,10 +895,10 @@ class _ContinueButton extends StatelessWidget {
                   "reading": overall.reading?.percentage ?? 0,
                   "writing": overall.writing?.percentage ?? 0,
                   "modules": {
-                    "listening": individual.listening,
-                    "speaking": individual.speaking,
-                    "reading": individual.reading,
-                    "writing": individual.writing,
+                    "listening": individual.listening.toJson(),
+                    "speaking": individual.speaking.toJson(),
+                    "reading": individual.reading.toJson(),
+                    "writing": individual.writing.toJson(),
                   }, 
                 };
 
