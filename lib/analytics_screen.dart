@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'package:hoot_path/lsrw_api_service.dart.dart';
+import 'package:hoot_path/lsrw_api_service.dart';
 import 'package:hoot_path/skill_detail_sheet.dart';
 import 'package:hoot_path/learning_path_screen.dart';
+import 'package:hoot_path/config/app_config.dart';
 
 // ─── Theme Colors ─────────────────────────────────────────────────────────────
 const kAppGreen = Color(0xFF008738);
@@ -25,7 +26,7 @@ const kReadingBg = Color(0xFFF2FAE6);
 const kWritingBg = Color(0xFFE3F2FD);
 
 // ─── Hardcoded user ID (replace from login/session) ───────────────────────────
-const kUserId = '66628e2f213ad0a228fedd06';
+// kUserId is defined in lib/config/app_config.dart
 
 // ─── Analytics Screen ─────────────────────────────────────────────────────────
 class AnalyticsScreen extends StatefulWidget {

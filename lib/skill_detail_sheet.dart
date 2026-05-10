@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'package:hoot_path/lsrw_api_service.dart.dart';
+import 'package:hoot_path/lsrw_api_service.dart';
 
 // ─── Theme Colors ─────────────────────────────────────────────────────────────
 const kAppGreen   = Color(0xFF008738);

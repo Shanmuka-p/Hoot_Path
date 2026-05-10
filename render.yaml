@@ -4,8 +4,11 @@ services:
     env: node
     buildCommand: npm install
     startCommand: node server.js
+    # ⚠️  Do NOT store real credentials here.
+    # Set MONGO_URI and PORT in the Render dashboard under Environment → Secret Files.
+    # This file only documents which keys the service needs.
     envVars:
       - key: MONGO_URI
-        value: mongodb+srv://hoot_admin:HootApp2026@cluster0.rfkxhhq.mongodb.net/?appName=Cluster0
+        sync: false       # Set the actual value in Render Dashboard → Environment
       - key: PORT
         value: 5001
