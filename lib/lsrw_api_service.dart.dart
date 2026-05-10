@@ -111,7 +111,7 @@ class ModuleRecord {
   factory ModuleRecord.fromJson(Map<String, dynamic> json) {
     return ModuleRecord(
       moduleName: json['module_name'] ?? '',
-      moduleIcon: json['module_icon'] ?? '',
+      moduleIcon: _resolveIconUrl(json['module_icon']),
       complexity: json['complexity'] ?? 'easy',
       percentage: double.tryParse(json['percentage'].toString()) ?? 0.0,
       count:      json['count'] ?? 0,
