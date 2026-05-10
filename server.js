@@ -249,7 +249,10 @@ app.post('/api/generate-learning-path', async (req, res) => {
         
         const response = await fetch(`${ollamaBaseUrl}/api/generate`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
+            },
             body: JSON.stringify({
                 model: 'llama3', 
                 prompt: prompt,
