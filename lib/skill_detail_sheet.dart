@@ -31,13 +31,8 @@ const _skillIcons = <String, IconData>{
   'writing':   Icons.edit_outlined,
 };
 
-// Sub-module fallback icons per skill
-const _subModuleIcons = <String, IconData>{
-  'listening': Icons.headphones,
-  'speaking':  Icons.record_voice_over,
-  'reading':   Icons.chrome_reader_mode,
-  'writing':   Icons.draw,
-};
+// Note: Sub-module icons come exclusively from the API's module_icon field.
+// No hardcoded per-skill icon map — that would hide missing API data.
 
 // ─── Skill Detail Sheet ───────────────────────────────────────────────────────
 class SkillDetailSheet extends StatelessWidget {
@@ -408,8 +403,9 @@ class _ModuleCard extends StatelessWidget {
     );
   }
 
+  /// Builds the module icon using ONLY the API-provided module_icon URL.
+  /// Falls back to an initial-letter avatar when the URL is absent or broken.
   Widget _buildModuleIcon() {
-    final iconData = _subModuleIcons[skillName] ?? Icons.school_outlined;
     if (record.moduleIcon.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
@@ -435,15 +431,21 @@ class _ModuleCard extends StatelessWidget {
               ),
             );
           },
-          errorBuilder: (_, __, ___) => _skillIconFallback(iconData),
+          // If the image fails to load, show an initial-letter avatar
+          errorBuilder: (_, __, ___) => _initialAvatar(),
         ),
       );
     }
-    return _skillIconFallback(iconData);
+    // No URL from API — show initial-letter avatar as a neutral placeholder
+    return _initialAvatar();
   }
 
-  /// Skill-appropriate icon fallback (no more puzzle piece!)
-  Widget _skillIconFallback(IconData iconData) {
+  /// Neutral placeholder: first letter of the module name on a tinted background.
+  /// This makes it clear no icon was provided by the API (vs. a misleading category icon).
+  Widget _initialAvatar() {
+    final initial = record.moduleName.isNotEmpty
+        ? record.moduleName[0].toUpperCase()
+        : '?';
     return Container(
       width: 36,
       height: 36,
@@ -451,7 +453,16 @@ class _ModuleCard extends StatelessWidget {
         color: skillColor.withOpacity(0.12),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(iconData, color: skillColor, size: 20),
+      child: Center(
+        child: Text(
+          initial,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: skillColor,
+          ),
+        ),
+      ),
     );
   }
 }
