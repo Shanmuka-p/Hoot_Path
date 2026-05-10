@@ -10,7 +10,7 @@
 
 /// The active user's ID.
 /// TODO: Replace with dynamic ID from authentication token after auth is added.
-const String kUserId = '66628e2f213ad0a228fedd06';
+const String kUserId = '679b4a4fe53c00689fa604f1';
 
 /// Base URL for the LSRW Analytics API (aihoot backend).
 const String kLsrwApiBaseHost = 'https://aihoot.in:5001';
