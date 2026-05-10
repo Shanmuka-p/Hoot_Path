@@ -56,14 +56,14 @@ class LearningPathService {
     Map<String, dynamic> accuracyData,
   ) async {
     try {
-      // Gemini AI generation can take 30-60s
+      // AI generation can take a long time if running locally on CPU
       final response = await http
           .post(
             Uri.parse('$baseUrl/generate-learning-path'),
             headers: {"Content-Type": "application/json"},
             body: json.encode({"user_id": userId, "accuracy": accuracyData}),
           )
-          .timeout(const Duration(seconds: 120));
+          .timeout(const Duration(seconds: 300));
       return _handleResponse(response);
     } on TimeoutException {
       throw Exception(
