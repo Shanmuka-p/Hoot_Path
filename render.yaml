@@ -7,7 +7,5 @@ services:
     envVars:
       - key: MONGO_URI
         value: mongodb+srv://hoot_admin:HootApp2026@cluster0.rfkxhhq.mongodb.net/?appName=Cluster0
-      - key: GEMINI_API_KEY
-        value: AIzaSyAtFSYXdOnv-YcfcUBPaG0WCF5HAEg3G94
       - key: PORT
         value: 5001
