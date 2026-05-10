@@ -180,19 +180,30 @@ Each object must match this exact structure:
 }
 `;
 
-    const result   = await geminiModel.generateContent(prompt);
-    const rawText  = result.response.text().trim();
+    const result  = await geminiModel.generateContent(prompt);
+    const rawText = result.response.text().trim();
 
-    // Strip any accidental markdown fences Gemini may add
-    const jsonText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    // Strip markdown fences Gemini sometimes wraps around JSON
+    let jsonText = rawText
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
 
-    const parsed = JSON.parse(jsonText);
-    if (!Array.isArray(parsed) || parsed.length !== 30) {
-        throw new Error(`Gemini returned an unexpected structure (length=${parsed?.length})`);
+    // Some Gemini versions return { "path": [...] } or { "days": [...] } — unwrap if needed
+    let parsed = JSON.parse(jsonText);
+    if (!Array.isArray(parsed)) {
+        // Try to find an array inside a wrapper object
+        const inner = Object.values(parsed).find(v => Array.isArray(v));
+        if (inner) parsed = inner;
+        else throw new Error(`Gemini returned a non-array: ${JSON.stringify(parsed).slice(0, 200)}`);
+    }
+    if (parsed.length < 25) {
+        // Accept 25+ days (Gemini occasionally returns 28-30)
+        throw new Error(`Gemini returned only ${parsed.length} days (expected 30)`);
     }
 
     // Enrich tasks with module_icon from real API data (Gemini only knows module names)
-    const iconMap = {}; // flat map: module_name → module_icon
+    const iconMap = {};
     Object.values(moduleRecords).forEach(recs => {
         recs.forEach(r => { if (r.module_name) iconMap[r.module_name] = r.module_icon || ''; });
     });
@@ -207,6 +218,17 @@ Each object must match this exact structure:
 }
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
+
+// ── Debug: verify Gemini API key is working ──────────────────────────────────
+app.get('/api/test-gemini', async (req, res) => {
+    try {
+        const result  = await geminiModel.generateContent('Reply with exactly the word: OK');
+        const text    = result.response.text().trim();
+        res.json({ status: 'ok', gemini_reply: text, key_prefix: (process.env.GEMINI_API_KEY || '').slice(0, 8) + '...' });
+    } catch (err) {
+        res.status(500).json({ status: 'error', message: err.message });
+    }
+});
 
 app.post('/api/get-learning-path', async (req, res) => {
     try {
@@ -250,19 +272,11 @@ app.post('/api/generate-learning-path', async (req, res) => {
             return res.status(400).json({ error: 'Active path exists.' });
         }
 
-        let generatedPath;
-        let source = 'gemini';
-
-        try {
-            console.log(`[Gemini] Generating 30-day path for user: ${user_id}`);
-            generatedPath = await generatePathWithGemini(accuracy || {});
-            console.log(`[Gemini] Path generated successfully for user: ${user_id}`);
-        } catch (geminiError) {
-            // Gemini unavailable (quota, key issue, parse error) — fall back to smart algorithm
-            console.warn(`[Gemini] Failed (${geminiError.message}). Falling back to smart algorithm.`);
-            generatedPath = generateSmartPath(accuracy || {});
-            source = 'fallback';
-        }
+        console.log(`[Gemini] Generating 30-day path for user: ${user_id}`);
+        // Throws clearly if Gemini fails — no silent fallback, so errors are visible
+        const generatedPath = await generatePathWithGemini(accuracy || {});
+        console.log(`[Gemini] Path generated successfully for user: ${user_id}`);
+        const source = 'gemini';
 
         const newPath = new LearningPath({
             user_id,
@@ -283,7 +297,8 @@ app.post('/api/generate-learning-path', async (req, res) => {
 
         const savedDoc = await newPath.save();
         console.log(`[${source}] 30-day path saved for user: ${user_id}`);
-        res.json(savedDoc);
+        // Include source so the client knows which engine generated the path
+        res.json({ ...savedDoc.toObject(), _source: source });
 
     } catch (error) {
         console.error('Generate path error:', error.message);
