@@ -17,11 +17,13 @@ mongoose.connect(process.env.MONGO_URI, {
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.log('MongoDB Error:', err));
 
-// ─── OpenRouter Free Models (priority order) ──────────────────────────────────
+// ─── OpenRouter Free Models (priority order — most reliable first) ───────────
 const DEFAULT_MODELS = [
     'meta-llama/llama-3.1-8b-instruct:free',
     'mistralai/mistral-7b-instruct:free',
-    'google/gemma-3-12b-it:free',
+    'qwen/qwen-2-7b-instruct:free',
+    'google/gemma-2-9b-it:free',
+    'nousresearch/hermes-3-llama-3.1-8b:free',
     'deepseek/deepseek-r1-distill-qwen-14b:free',
     'microsoft/phi-3-mini-128k-instruct:free',
 ];
@@ -29,6 +31,9 @@ const DEFAULT_MODELS = [
 // ─────────────────────────────────────────────────────────────────────────────
 //  HELPERS — Extract real API module data
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Normalise a module name for comparison: lowercase + collapse whitespace
+const normName = str => (str || '').toLowerCase().replace(/\s+/g, ' ').trim();
 
 /** Returns structured module lists per skill from real API accuracy data. */
 function extractModules(accuracy) {
@@ -49,12 +54,12 @@ function extractModules(accuracy) {
     return out;
 }
 
-/** Icon lookup map: lowercase module name → { module_icon, course_name } */
+/** Icon lookup map: normalised module name → { module_icon, course_name } */
 function buildIconMap(modules) {
     const map = {};
     for (const list of Object.values(modules)) {
         for (const m of list) {
-            map[m.module_name.toLowerCase()] = {
+            map[normName(m.module_name)] = {
                 module_icon: m.module_icon,
                 course_name: m.course_name,
             };
@@ -63,11 +68,11 @@ function buildIconMap(modules) {
     return map;
 }
 
-/** Set of all valid lowercase module names for validation. */
+/** Set of all valid normalised module names for validation. */
 function buildValidNameSet(modules) {
     const set = new Set();
     for (const list of Object.values(modules)) {
-        for (const m of list) set.add(m.module_name.toLowerCase());
+        for (const m of list) set.add(normName(m.module_name));
     }
     return set;
 }
@@ -146,6 +151,9 @@ Return ONLY a valid JSON array of exactly 30 objects. No markdown, no explanatio
  *   - Every module name used exists in the real API data
  * Returns the parsed path or null on any failure.
  */
+// Normalise a module name for comparison: lowercase + collapse whitespace
+
+
 function parseAndValidate(rawText, validNames) {
     try {
         let text = rawText.trim()
@@ -165,9 +173,9 @@ function parseAndValidate(rawText, validNames) {
 
             for (const task of day.tasks) {
                 if (!task.skill || !task.module) return null;
-                // Reject if LLM invented a module name not in real API data
-                if (validNames.size > 0 && !validNames.has(task.module.toLowerCase())) {
-                    console.warn(`[LLM] Rejected — unknown module: "${task.module}"`);
+                // Reject only if module is truly unknown (normalised comparison)
+                if (validNames.size > 0 && !validNames.has(normName(task.module))) {
+                    console.warn(`[LLM] Unknown module: "${task.module}" — trying next model.`);
                     return null;
                 }
             }
@@ -186,10 +194,67 @@ function enrichPath(path, iconMap) {
             ...task,
             difficulty:  task.difficulty || 'easy',
             count:       task.count || 2,
-            module_icon: (iconMap[task.module.toLowerCase()] || {}).module_icon || '',
-            course_name: (iconMap[task.module.toLowerCase()] || {}).course_name || '',
+            module_icon: (iconMap[normName(task.module)] || {}).module_icon || '',
+            course_name: (iconMap[normName(task.module)] || {}).course_name || '',
         })),
     }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ALGORITHM SAFETY NET — Uses ONLY real API modules, no invented names
+//  Runs only when every LLM key+model combination has failed.
+// ─────────────────────────────────────────────────────────────────────────────
+function buildAlgorithmPath(accuracy, modules) {
+    const ALL_SKILLS = ['Listening', 'Speaking', 'Reading', 'Writing'];
+    const keyMap     = { Listening: 'listening', Speaking: 'speaking', Reading: 'reading', Writing: 'writing' };
+
+    function classify(pct) {
+        if (pct < 40) return { priority: 5, verb: 'Emergency Focus'    };
+        if (pct < 60) return { priority: 4, verb: 'Intensive Practice'  };
+        if (pct < 75) return { priority: 3, verb: 'Skill Building'      };
+        if (pct < 90) return { priority: 2, verb: 'Refinement'          };
+        return             { priority: 1, verb: 'Mastery Review'       };
+    }
+
+    const pct  = { Listening: parseFloat(accuracy?.listening)||50, Speaking: parseFloat(accuracy?.speaking)||50, Reading: parseFloat(accuracy?.reading)||50, Writing: parseFloat(accuracy?.writing)||50 };
+    const info = {};
+    for (const s of ALL_SKILLS) info[s] = classify(pct[s]);
+
+    // Build module pools from real API data only
+    const pool = {};
+    for (const s of ALL_SKILLS) {
+        const key  = keyMap[s];
+        let recs   = modules[key] || [];
+        if (recs.length === 0) {
+            // No data for this skill at all — create one placeholder from API
+            recs = [{ module_name: s + ' Practice', module_icon: '', course_name: '', complexity: 'easy', percentage: 0, count: 0 }];
+        }
+        pool[s] = [...recs].sort((a, b) => a.percentage - b.percentage);
+    }
+
+    const weighted = [];
+    for (const s of ALL_SKILLS)
+        for (let i = 0; i < info[s].priority; i++) weighted.push(s);
+
+    const byPriority = [...ALL_SKILLS].sort((a, b) => info[b].priority - info[a].priority);
+    const cursor = { Listening: 0, Speaking: 0, Reading: 0, Writing: 0 };
+    const next = s => { const m = pool[s][cursor[s] % pool[s].length]; cursor[s]++; return m; };
+
+    const PHASES = [
+        { range:[1,10],  diff:'easy',   tasks:3, count:2 },
+        { range:[11,20], diff:'medium', tasks:4, count:3 },
+        { range:[21,30], diff:'hard',   tasks:5, count:4 },
+    ];
+
+    const path = [];
+    for (let day = 1; day <= 30; day++) {
+        const ph      = PHASES.find(p => day >= p.range[0] && day <= p.range[1]);
+        const primary = weighted[(day-1) % weighted.length];
+        const skills  = [primary, ...byPriority.filter(s => s !== primary)].slice(0, ph.tasks);
+        const tasks   = skills.map(s => { const m = next(s); return { skill:s, module:m.module_name, module_icon:m.module_icon, course_name:m.course_name, complexity:m.complexity||ph.diff, count:ph.count, difficulty:ph.diff }; });
+        path.push({ day, focus:`${primary}: ${info[primary].verb} — Day ${day}`, tasks });
+    }
+    return path;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -326,9 +391,10 @@ async function generateWithFallback(accuracy) {
         console.log(`[LLM] All models exhausted for key ${keyLabel}. Trying next key.`);
     }
 
-    throw new Error(
-        `All LLM keys and models exhausted. Attempts: ${attempts.join(' | ')}`
-    );
+    // ── Safety net: all LLMs failed — build a path from real API data ──────
+    console.warn('[LLM] All keys/models failed. Using API-data algorithm as safety net.');
+    const safetyPath = buildAlgorithmPath(accuracy, modules);
+    return { path: safetyPath, model: 'algorithm-fallback' };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
