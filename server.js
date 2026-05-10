@@ -17,45 +17,55 @@ mongoose.connect(process.env.MONGO_URI, {
     .then(() => console.log('MongoDB Connected'))
     .catch(err => console.log('MongoDB Error:', err));
 
-// ─── Fallback module names (used when API data has no records) ─────────────────
+// ─── Fallback module names (when API provides no records) ─────────────────────
 const FALLBACK_MODULES = {
-    Listening: [
-        'Audio Comprehension', 'Podcast Listening', 'Lecture Notes',
-        'Dialogue Practice', 'Story Listening', 'News Listening',
-        'Accent Training', 'Speed Listening', 'Inference Practice',
-    ],
-    Speaking: [
-        'Pronunciation Drill', 'Mock Interview', 'Topic Discussion',
-        'Tongue Twisters', 'Storytelling', 'Debate Practice',
-        'Vocabulary Speaking', 'Role Play', 'Presentation Skills',
-    ],
-    Reading: [
-        'Passage Comprehension', 'Vocabulary Builder', 'Speed Reading',
-        'Critical Analysis', 'Inference Questions', 'Summary Writing',
-        'Main Idea Finding', 'Context Clues', 'Article Reading',
-    ],
-    Writing: [
-        'Essay Draft', 'Grammar Exercises', 'Sentence Structuring',
-        'Paragraph Writing', 'Email Writing', 'Descriptive Writing',
-        'Punctuation Practice', 'Vocabulary in Context', 'Story Completion',
-    ],
+    Listening: ['Audio Comprehension', 'Podcast Listening', 'Lecture Notes',
+                'Dialogue Practice', 'Story Listening', 'News Listening',
+                'Accent Training', 'Speed Listening', 'Inference Practice'],
+    Speaking:  ['Pronunciation Drill', 'Mock Interview', 'Topic Discussion',
+                'Tongue Twisters', 'Storytelling', 'Debate Practice',
+                'Vocabulary Speaking', 'Role Play', 'Presentation Skills'],
+    Reading:   ['Passage Comprehension', 'Vocabulary Builder', 'Speed Reading',
+                'Critical Analysis', 'Inference Questions', 'Summary Writing',
+                'Main Idea Finding', 'Context Clues', 'Article Reading'],
+    Writing:   ['Essay Draft', 'Grammar Exercises', 'Sentence Structuring',
+                'Paragraph Writing', 'Email Writing', 'Descriptive Writing',
+                'Punctuation Practice', 'Vocabulary in Context', 'Story Completion'],
 };
 
-// ─── Smart 30-Day Path Generator ─────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════════════
+//  PERSONALIZED PATH GENERATOR — Condition Engine
+// ═════════════════════════════════════════════════════════════════════════════
 /**
- * Generates a highly personalized 30-day learning path from real API accuracy data.
+ * Generates a 30-day personalized path using a multi-layer condition engine:
  *
- * Algorithm:
- *  1. Skill priority is determined by accuracy (5 tiers — lower accuracy = higher priority).
- *  2. Modules within each skill are sorted weakest-first (by individual module percentage)
- *     so the student always practices what they struggle with most.
- *  3. Days 1-10 → Foundation (easy, 3 tasks). Days 11-20 → Practice (medium, 4 tasks).
- *     Days 21-30 → Mastery (hard, 5 tasks).
- *  4. Each day: primary skill is drawn from the weighted pool; remaining slots are filled
- *     by the next highest-priority skills.
- *  5. Module selection rotates independently per skill so no module repeats consecutively.
+ * LAYER 1 — Skill-level conditions (based on overall % for L/S/R/W):
+ *   Critical < 40%  → Priority ×5, intensive focus in all 3 phases
+ *   Weak     40-60% → Priority ×4, heavy early-phase emphasis
+ *   Moderate 60-75% → Priority ×3, balanced across phases
+ *   Good     75-90% → Priority ×2, lighter touch, maintenance
+ *   Strong   ≥ 90%  → Priority ×1, spaced review only
+ *
+ * LAYER 2 — Module-level conditions (based on module %, count, complexity):
+ *   Score = (100 - pct) × 0.6             → weak modules score higher
+ *         + count bonus (0 attempts = +30) → untouched modules get urgent slot
+ *         + complexity bonus              → easy modules slightly more urgent
+ *   Modules are sorted by score descending → weakest always scheduled first
+ *
+ * LAYER 3 — Phase-aware module selection:
+ *   Modules are bucketed into 3 learning phases by their complexity:
+ *     easy   → Phase 1 (Foundation, days 1-10)
+ *     medium → Phase 2 (Practice,   days 11-20)
+ *     hard   → Phase 3 (Mastery,    days 21-30)
+ *   Within each phase, modules with score < 50% are doubled-up (appear twice)
+ *   to ensure the student revisits their worst modules before moving forward.
+ *
+ * LAYER 4 — Smart focus labels:
+ *   The "focus" label for each day reflects the actual condition of the
+ *   primary skill (e.g., "Speaking: Emergency Focus — Day 3")
  */
 function generateSmartPath(accuracy) {
+
     const SKILL_LABELS = {
         listening: 'Listening',
         speaking:  'Speaking',
@@ -64,46 +74,78 @@ function generateSmartPath(accuracy) {
     };
     const ALL_SKILLS = ['Listening', 'Speaking', 'Reading', 'Writing'];
 
-    // ── Step 1: Build sorted module pools per skill ───────────────────────────
-    // Modules sorted ascending by percentage → weakest practiced first.
-    const modulePool = {};
+    // ── CONDITION HELPERS ────────────────────────────────────────────────────
+
+    /** LAYER 1: skill-level classification */
+    function classifySkill(pct) {
+        if (pct < 40) return { tier: 'Critical',  priority: 5, verb: 'Emergency Focus'  };
+        if (pct < 60) return { tier: 'Weak',      priority: 4, verb: 'Intensive Practice'};
+        if (pct < 75) return { tier: 'Moderate',  priority: 3, verb: 'Skill Building'   };
+        if (pct < 90) return { tier: 'Good',      priority: 2, verb: 'Refinement'       };
+        return             { tier: 'Strong',     priority: 1, verb: 'Mastery Review'   };
+    }
+
+    /** LAYER 2: module-level priority score — higher = scheduled sooner & more often */
+    function moduleScore(pct, count, complexity) {
+        let score = (100 - pct) * 0.6;          // low accuracy → high score
+        if (count === 0)      score += 30;       // never attempted → urgent
+        else if (count < 3)   score += 15;       // barely touched
+        else if (count < 7)   score += 5;        // some exposure
+        if (complexity === 'easy')   score += 5; // easy first
+        else if (complexity === 'hard') score -= 5; // hard later
+        return score;
+    }
+
+    /** LAYER 3: which learning phase this module belongs to */
+    function modulePhase(complexity, pct) {
+        if (complexity === 'hard')   return 3;   // hard → Mastery
+        if (complexity === 'medium') return 2;   // medium → Practice
+        return 1;                                 // easy or unset → Foundation
+    }
+
+    // ── STEP 1: Parse & score all modules from API data ──────────────────────
+    const modulePool = {};   // { Listening: [...sorted records], ... }
+
     for (const [key, label] of Object.entries(SKILL_LABELS)) {
         const skillData = accuracy?.modules?.[key];
         let records = [];
 
         if (skillData?.records?.length > 0) {
-            records = [...skillData.records]
-                .sort((a, b) =>
-                    (parseFloat(a.percentage) || 0) - (parseFloat(b.percentage) || 0)
-                )
-                .map(r => ({
-                    module_name: r.module_name  || r.moduleName  || '',
-                    module_icon: r.module_icon  || r.moduleIcon  || '',
-                    complexity:  r.complexity   || 'easy',
-                    percentage:  parseFloat(r.percentage) || 0,
-                    count:       r.count        || 0,
-                    course_name: r.course_name  || r.courseName  || '',
-                }));
+            records = skillData.records.map(r => {
+                const pct        = parseFloat(r.percentage) || 0;
+                const count      = r.count || 0;
+                const complexity = r.complexity || 'easy';
+                return {
+                    module_name:     r.module_name  || r.moduleName  || '',
+                    module_icon:     r.module_icon  || r.moduleIcon  || '',
+                    complexity,
+                    percentage:      pct,
+                    count,
+                    course_name:     r.course_name  || r.courseName  || '',
+                    _score:          moduleScore(pct, count, complexity),
+                    _phase:          modulePhase(complexity, pct),
+                };
+            });
+
+            // Sort by score descending: weakest / untouched modules first
+            records.sort((a, b) => b._score - a._score);
+
+            // Double-up modules where percentage < 50 so they get extra repetition
+            const urgentMods = records.filter(r => r.percentage < 50);
+            records = [...urgentMods, ...records];
         } else {
-            // Use fallback names when this skill has no API records
-            records = FALLBACK_MODULES[label].map(name => ({
+            // Fallback: generate placeholder records
+            records = FALLBACK_MODULES[label].map((name, i) => ({
                 module_name: name, module_icon: '', complexity: 'easy',
                 percentage: 0, count: 0, course_name: '',
+                _score: 100 - i * 5, _phase: 1,
             }));
         }
+
         modulePool[label] = records;
     }
 
-    // ── Step 2: Calculate 5-tier skill priority ───────────────────────────────
-    // Lower accuracy → higher priority → appears more often in the path.
-    function getPriority(pct) {
-        if (pct < 40) return 5;   // Critical
-        if (pct < 60) return 4;   // Weak
-        if (pct < 75) return 3;   // Moderate
-        if (pct < 90) return 2;   // Good
-        return 1;                  // Strong (maintenance only)
-    }
-
+    // ── STEP 2: Classify each skill and build weighted pool ───────────────────
     const skillAccuracy = {
         Listening: parseFloat(accuracy?.listening) || 50,
         Speaking:  parseFloat(accuracy?.speaking)  || 50,
@@ -111,56 +153,76 @@ function generateSmartPath(accuracy) {
         Writing:   parseFloat(accuracy?.writing)   || 50,
     };
 
-    const priority = {};
+    const skillInfo = {};
     for (const skill of ALL_SKILLS) {
-        priority[skill] = getPriority(skillAccuracy[skill]);
+        skillInfo[skill] = classifySkill(skillAccuracy[skill]);
     }
 
-    // ── Step 3: Build weighted skill pool ────────────────────────────────────
-    // A skill with priority 5 appears 5× in the pool, so it is selected 5× more often.
+    // Weighted pool: a skill with priority 5 appears 5× more than one with priority 1
     const weightedPool = [];
     for (const skill of ALL_SKILLS) {
-        for (let i = 0; i < priority[skill]; i++) weightedPool.push(skill);
+        for (let i = 0; i < skillInfo[skill].priority; i++) {
+            weightedPool.push(skill);
+        }
     }
 
-    // Sort skills by priority desc for consistent secondary slot filling
-    const skillsByPriority = [...ALL_SKILLS].sort((a, b) => priority[b] - priority[a]);
+    // Sorted order for filling secondary task slots each day
+    const skillsByPriority = [...ALL_SKILLS].sort(
+        (a, b) => skillInfo[b].priority - skillInfo[a].priority
+    );
 
-    // ── Step 4: Independent rotating module indices per skill ─────────────────
-    // Each skill has its own cursor that advances independently,
-    // ensuring no module repeats on back-to-back days.
-    const cursor = { Listening: 0, Speaking: 0, Reading: 0, Writing: 0 };
+    // ── STEP 3: Bucket modules per skill per phase ────────────────────────────
+    // Each [skill][phase] bucket gets its own rotating cursor so modules
+    // within a phase advance independently and don't repeat on consecutive days.
+    const phaseBuckets = {};
+    const cursor       = {};
 
-    function nextModule(skill) {
-        const pool = modulePool[skill];
-        const record = pool[cursor[skill] % pool.length];
-        cursor[skill]++;
-        return record;
+    for (const skill of ALL_SKILLS) {
+        phaseBuckets[skill] = { 1: [], 2: [], 3: [] };
+        cursor[skill]       = { 1: 0, 2: 0, 3: 0 };
+
+        for (const mod of modulePool[skill]) {
+            phaseBuckets[skill][mod._phase].push(mod);
+        }
+
+        // Ensure no phase is empty (fall back to all modules if needed)
+        for (const ph of [1, 2, 3]) {
+            if (phaseBuckets[skill][ph].length === 0) {
+                phaseBuckets[skill][ph] = [...modulePool[skill]];
+            }
+        }
     }
 
-    // ── Step 5: Build 30 days ─────────────────────────────────────────────────
-    const PHASES = [
-        { days: [1,  10], difficulty: 'easy',   taskCount: 3, count: 2, label: 'Foundation' },
-        { days: [11, 20], difficulty: 'medium',  taskCount: 4, count: 3, label: 'Practice'   },
-        { days: [21, 30], difficulty: 'hard',    taskCount: 5, count: 4, label: 'Mastery'    },
+    function nextModule(skill, phase) {
+        const bucket = phaseBuckets[skill][phase];
+        const mod    = bucket[cursor[skill][phase] % bucket.length];
+        cursor[skill][phase]++;
+        return mod;
+    }
+
+    // ── STEP 4: Build the 30-day plan ─────────────────────────────────────────
+    const PHASE_DEFS = [
+        { range: [1,  10], phaseNum: 1, difficulty: 'easy',   taskCount: 3, count: 2, label: 'Foundation' },
+        { range: [11, 20], phaseNum: 2, difficulty: 'medium', taskCount: 4, count: 3, label: 'Practice'   },
+        { range: [21, 30], phaseNum: 3, difficulty: 'hard',   taskCount: 5, count: 4, label: 'Mastery'    },
     ];
 
     function getPhase(day) {
-        return PHASES.find(p => day >= p.days[0] && day <= p.days[1]);
+        return PHASE_DEFS.find(p => day >= p.range[0] && day <= p.range[1]);
     }
 
     const path = [];
 
     for (let day = 1; day <= 30; day++) {
-        const phase       = getPhase(day);
+        const phase        = getPhase(day);
         const primarySkill = weightedPool[(day - 1) % weightedPool.length];
 
-        // Fill today's skill slots: primary first, then next highest-priority skills
-        const otherSkills  = skillsByPriority.filter(s => s !== primarySkill);
-        const todaySkills  = [primarySkill, ...otherSkills].slice(0, phase.taskCount);
+        // Primary skill fills slot 0; remaining slots go to next highest-priority skills
+        const otherSkills = skillsByPriority.filter(s => s !== primarySkill);
+        const todaySkills = [primarySkill, ...otherSkills].slice(0, phase.taskCount);
 
         const tasks = todaySkills.map(skill => {
-            const mod = nextModule(skill);
+            const mod = nextModule(skill, phase.phaseNum);
             return {
                 skill,
                 module:      mod.module_name,
@@ -172,7 +234,10 @@ function generateSmartPath(accuracy) {
             };
         });
 
-        const focus = `${primarySkill} ${phase.label} — Day ${day}`;
+        // LAYER 4: Smart focus label reflects the actual skill condition
+        const info  = skillInfo[primarySkill];
+        const focus = `${primarySkill}: ${info.verb} — Day ${day}`;
+
         path.push({ day, focus, tasks });
     }
 
@@ -227,69 +292,9 @@ app.post('/api/generate-learning-path', async (req, res) => {
             return res.status(400).json({ error: 'Active path exists.' });
         }
 
-        // 1. Construct the prompt for Ollama
-        const prompt = `
-        You are an AI language mentor. Generate a 30-day learning path based on this student's accuracy data:
-        Listening: ${accuracy?.listening || 0}%
-        Speaking: ${accuracy?.speaking || 0}%
-        Reading: ${accuracy?.reading || 0}%
-        Writing: ${accuracy?.writing || 0}%
+        console.log(`[PathGen] Building personalized 30-day path for user: ${user_id}`);
+        const generatedPath = generateSmartPath(accuracy || {});
 
-        Focus heavily on their weakest skills.
-        You MUST return ONLY valid JSON. The JSON must be an array of 30 objects.
-        Do not include any markdown formatting, backticks, or explanation. Just the raw JSON array.
-        
-        Exact structure required:
-        [
-          {
-            "day": 1,
-            "focus": "Listening Foundation",
-            "tasks": [
-               { "skill": "Listening", "module": "Audio Comprehension", "difficulty": "easy", "count": 2 }
-            ]
-          }
-        ]
-        `;
-
-        // 2. Call the Ollama API using an environment variable for the base URL
-        let ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-        if (ollamaBaseUrl.endsWith('/')) {
-            ollamaBaseUrl = ollamaBaseUrl.slice(0, -1);
-        }
-        
-        console.log(`Calling Ollama at ${ollamaBaseUrl} to generate path...`);
-        
-        const response = await fetch(`${ollamaBaseUrl}/api/generate`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
-            },
-            body: JSON.stringify({
-                model: 'llama3.2:1b', 
-                prompt: prompt,
-                stream: false,   
-                format: 'json'   
-            })
-        });
-
-        if (!response.ok) {
-             const errText = await response.text();
-             throw new Error(`Ollama failed with status: ${response.status}, message: ${errText}`);
-        }
-
-        const data = await response.json();
-        
-        // 3. Parse the JSON returned by Ollama
-        let generatedPath;
-        try {
-            generatedPath = JSON.parse(data.response);
-        } catch (parseError) {
-             console.error("Failed to parse Ollama response as JSON:", data.response);
-             throw new Error("AI returned invalid JSON");
-        }
-
-        // 4. Save to MongoDB
         const newPath = new LearningPath({
             user_id,
             start_date: new Date().toISOString().split('T')[0],
