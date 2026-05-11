@@ -102,6 +102,7 @@ function generateSmartPath(accuracy) {
                     percentage:  pct,
                     count,
                     course_name: r.course_name  || r.courseName  || '',
+                    sub_modules: r.sub_modules  || r.subModules  || [],
                     _score:      calcModuleScore(pct, count, complexity),
                     _phase:      preferredPhase(complexity),
                 };
@@ -177,8 +178,8 @@ function generateSmartPath(accuracy) {
         const phase        = PHASE_DEFS.find(p => day >= p.range[0] && day <= p.range[1]);
         const primarySkill = weightedPool[(day - 1) % weightedPool.length];
 
-        const otherSkills = skillsByPriority.filter(s => s !== primarySkill);
-        const todaySkills = [primarySkill, ...otherSkills].slice(0, phase.taskCount);
+        // All tasks for the day must belong to the primarySkill to match the focus heading
+        const todaySkills = Array(phase.taskCount).fill(primarySkill);
 
         const tasks = todaySkills.map(skill => {
             const mod = nextModule(skill, phase.phaseNum);
@@ -190,11 +191,12 @@ function generateSmartPath(accuracy) {
                 course_name: mod.course_name,
                 count:       phase.count,
                 difficulty:  phase.difficulty,
+                sub_modules: mod.sub_modules || [],
             };
         });
 
         // Layer 4: smart label reflects the actual skill tier condition
-        const focus = `${primarySkill}: ${skillInfo[primarySkill].verb} — Day ${day}`;
+        const focus = `${primarySkill}: ${skillInfo[primarySkill].verb} — Level ${day}`;
         path.push({ day, focus, tasks });
     }
 

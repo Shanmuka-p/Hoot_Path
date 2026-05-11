@@ -64,12 +64,12 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
   Future<void> _markComplete() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm'),
+      builder: (context) => AlertDialog(backgroundColor: Color.fromARGB(255, 214, 238, 224),
+        title: const Text('Confirm',),
         content: const Text('Are you sure you want to mark this day as complete?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true),  child: const Text('Complete')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel',style: TextStyle(color: Color.fromARGB(255, 2, 101, 6)),),),
+          TextButton(onPressed: () => Navigator.pop(context, true),  child: const Text('Complete',style: TextStyle(color: Color.fromARGB(255, 2, 101, 6)))),
         ],
       ),
     );
@@ -124,7 +124,7 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
     final tasks = widget.dayData['tasks'] as List? ?? [];
     return Scaffold(
       appBar: AppBar(
-        title: Text('Day ${widget.dayData['day']} Tasks'),
+        title: Text('Level ${widget.dayData['day']} Tasks'),
         backgroundColor: const Color(0xFF008738),
         iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),

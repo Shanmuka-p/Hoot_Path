@@ -360,7 +360,7 @@ class _LearningPathScreenState extends State<LearningPathScreen>
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    '$completedCount/$totalDays days',
+                    '$completedCount/$totalDays Levels',
                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF008738)),
                   ),
                 ],
@@ -524,7 +524,7 @@ class _LearningPathScreenState extends State<LearningPathScreen>
                                   child: const Text('ACTIVE FOCUS', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black)),
                                 ),
                               Text(
-                                'Day $dayNum',
+                                'Level $dayNum',
                                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isLocked ? Colors.grey.shade400 : const Color(0xFF666666)),
                               ),
                             ],

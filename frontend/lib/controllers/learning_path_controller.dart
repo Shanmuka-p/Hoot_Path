@@ -76,7 +76,7 @@ class LearningPathController extends ChangeNotifier {
       'Sorting ${skills.where((s) => (s['pct'] as double) < _kWeak).length} weak skill(s) to the front of the queue...',
       'Building Foundation → Practice → Mastery progression...',
       'Assigning modules from weakest percentage upward...',
-      'Finalizing your 30-day personalized path...',
+      'Finalizing your 30-Level personalized path...',
     ];
   }
 

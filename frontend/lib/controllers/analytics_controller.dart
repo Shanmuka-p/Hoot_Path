@@ -49,7 +49,7 @@ class AnalyticsController extends ChangeNotifier {
     if (pct >= 80) return 'Excellent';
     if (pct >= 65) return 'Good';
     if (pct >= 50) return 'Average';
-    return 'Needs Improvement';
+    return 'Poor';
   }
 
   Color statusColor(double pct) {

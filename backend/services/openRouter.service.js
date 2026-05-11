@@ -35,6 +35,7 @@ function extractModules(accuracy) {
                 complexity:  r.complexity  || 'easy',
                 percentage:  parseFloat(r.percentage) || 0,
                 count:       r.count || 0,
+                sub_modules: r.sub_modules || r.subModules || [],
             }))
             .filter(r => r.module_name.trim() !== '');
     }
@@ -49,6 +50,7 @@ function buildIconMap(modules) {
             map[normName(m.module_name)] = {
                 module_icon: m.module_icon,
                 course_name: m.course_name,
+                sub_modules: m.sub_modules,
             };
         }
     }
@@ -92,7 +94,7 @@ function buildPrompt(accuracy, modules) {
     const critical = [['Listening',l],['Speaking',s],['Reading',r],['Writing',w]]
         .filter(([,p]) => p < 40).map(([n]) => n);
 
-    return `You are an expert English language AI mentor. Analyze the student's real performance data and generate a personalized 30-day learning path.
+    return `You are an expert English language AI mentor. Analyze the student's real performance data and generate a personalized 30-level learning path.
 
 === STUDENT SKILL ACCURACY ===
 Listening : ${l}%  [${tier(l)}]
@@ -117,14 +119,14 @@ ${fmtModules(modules.writing)}
 1. Days  1-10 (Foundation): 3 tasks/day, difficulty="easy",   count=2
 2. Days 11-20 (Practice):   4 tasks/day, difficulty="medium", count=3
 3. Days 21-30 (Mastery):    5 tasks/day, difficulty="hard",   count=4
-4. ${critical.length > 0 ? `CRITICAL skills (${critical.join(', ')}) MUST appear in EVERY single day.` : 'Distribute skills proportionally — lowest accuracy = highest frequency.'}
+4. The "focus" for each day MUST be for exactly ONE skill (e.g., "Listening: Emergency Focus — Day 1"), and EVERY task in that day MUST strictly belong to that same skill. Do not mix skills in a single day.
 5. Modules with lower accuracy must appear more often across the 30 days.
-6. Modules with 0 attempts must be introduced in days 1-10.
-7. Never repeat the same module on back-to-back days.
+6. Modules with 0 attempts must be introduced in Levels 1-10.
+7. Never repeat the same module on back-to-back Levels.
 8. STRICT: Use ONLY the exact module names from the lists above. DO NOT invent names.
 
 Return ONLY a valid JSON array of exactly 30 objects. No markdown, no explanation.
-[{"session":1,"focus":"Listening: Emergency Focus — Day 1","tasks":[{"skill":"Listening","module":"<exact name>","difficulty":"easy","count":2},...]}]`;
+[{"session":1,"focus":"Listening: Emergency Focus — Levels 1","tasks":[{"skill":"Listening","module":"<exact name>","difficulty":"easy","count":2},...]}]`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -180,6 +182,7 @@ function enrichPath(path, iconMap) {
             count:       task.count || 2,
             module_icon: (iconMap[normName(task.module)] || {}).module_icon || '',
             course_name: (iconMap[normName(task.module)] || {}).course_name || '',
+            sub_modules: (iconMap[normName(task.module)] || {}).sub_modules || [],
         })),
     }));
 }
@@ -211,7 +214,7 @@ function buildAlgorithmPath(accuracy, modules) {
         let recs   = modules[key] || [];
         if (recs.length === 0) {
             // No data for this skill at all — create one placeholder from API
-            recs = [{ module_name: s + ' Practice', module_icon: '', course_name: '', complexity: 'easy', percentage: 0, count: 0 }];
+            recs = [{ module_name: s + ' Practice', module_icon: '', course_name: '', complexity: 'easy', percentage: 0, count: 0, sub_modules: [] }];
         }
         pool[s] = [...recs].sort((a, b) => a.percentage - b.percentage);
     }
@@ -235,7 +238,7 @@ function buildAlgorithmPath(accuracy, modules) {
         const ph      = PHASES.find(p => day >= p.range[0] && day <= p.range[1]);
         const primary = weighted[(day-1) % weighted.length];
         const skills  = [primary, ...byPriority.filter(s => s !== primary)].slice(0, ph.tasks);
-        const tasks   = skills.map(s => { const m = next(s); return { skill:s, module:m.module_name, module_icon:m.module_icon, course_name:m.course_name, complexity:m.complexity||ph.diff, count:ph.count, difficulty:ph.diff }; });
+        const tasks   = skills.map(s => { const m = next(s); return { skill:s, module:m.module_name, module_icon:m.module_icon, course_name:m.course_name, complexity:m.complexity||ph.diff, count:ph.count, difficulty:ph.diff, sub_modules:m.sub_modules||[] }; });
         path.push({ day, focus:`${primary}: ${info[primary].verb} — Day ${day}`, tasks });
     }
     return path;
@@ -384,4 +387,5 @@ async function generateWithFallback(accuracy) {
     return { path: safetyPath, model: 'algorithm-fallback' };
 }
 
+module.exports = { generateWithFallback };
 module.exports = { generateWithFallback };

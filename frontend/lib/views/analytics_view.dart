@@ -596,31 +596,54 @@ class _ContinueButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: SizedBox(
         width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => LearningPathScreen(
-                  userId: kUserId,
-                  currentAccuracy: const {},
-                ),
+        height: 54,
+        child: Builder(
+          builder: (context) {
+            // Accessing state from the parent AnalyticsScreen
+            final state = context.findAncestorStateOfType<_AnalyticsScreenState>();
+            final overall = state?._controller.overall;
+            final individual = state?._controller.individual;
+
+            return ElevatedButton.icon(
+              icon: const Icon(Icons.route, color: Colors.black),
+              label: const Text(
+                "AI Mentor Path",
+                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
               ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFBB00),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              onPressed: (overall == null || individual == null) ? null : () {
+                Map<String, dynamic> accuracyPayload = {
+                  "listening": overall.listening?.percentage ?? 0,
+                  "speaking": overall.speaking?.percentage ?? 0,
+                  "reading": overall.reading?.percentage ?? 0,
+                  "writing": overall.writing?.percentage ?? 0,
+                  "modules": {
+                    "listening": individual.listening.toJson(),
+                    "speaking": individual.speaking.toJson(),
+                    "reading": individual.reading.toJson(),
+                    "writing": individual.writing.toJson(),
+                  }, 
+                };
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LearningPathScreen(
+                      userId: kUserId,
+                      currentAccuracy: accuracyPayload,
+                    ),
+                  ),
+                );
+              },
             );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: kAppGreen,
-            foregroundColor: kWhite,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-          child: const Text(
-            'Continue Learning',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
+          }
         ),
       ),
     );
