@@ -123,7 +123,7 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
     final tasks = widget.dayData['tasks'] as List? ?? [];
     return Scaffold(
       appBar: AppBar(
-        title: Text('Day ${widget.dayData['day']} Tasks'),
+        title: Text('Level ${widget.dayData['day']} Tasks'),
         backgroundColor: const Color(0xFF008738),
         iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
