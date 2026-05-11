@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hoot_path/config/app_config.dart';
 
 // ─── Auth Session (singleton — runtime state) ─────────────────────────────────
@@ -19,6 +20,7 @@ class AuthSession {
 
   String _userId   = '';
   String _userName = '';
+  Map<String, dynamic> _userData = {};
 
   /// The MongoDB student_id returned from the login API.
   String get userId   => _userId;
@@ -26,18 +28,47 @@ class AuthSession {
   /// The student's display name returned from the login API.
   String get userName => _userName;
 
+  /// The raw user data from the login API.
+  Map<String, dynamic> get userData => _userData;
+
   /// First letter of the student name, used for the avatar badge.
   String get avatarLetter =>
       _userName.isNotEmpty ? _userName[0].toUpperCase() : 'S';
 
-  void _set({required String userId, required String userName}) {
+  void _set({required String userId, required String userName, required Map<String, dynamic> userData}) {
     _userId   = userId;
     _userName = userName;
+    _userData = userData;
   }
 
-  void clear() {
+  Future<void> saveSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_data', jsonEncode(_userData));
+  }
+
+  Future<bool> loadSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dataStr = prefs.getString('user_data');
+      if (dataStr != null && dataStr.isNotEmpty) {
+        final decoded = jsonDecode(dataStr) as Map<String, dynamic>;
+        _userData = decoded;
+        _userId = (decoded['student_id'] ?? decoded['_id'] ?? decoded['id'] ?? '') as String;
+        _userName = (decoded['first_name'] ?? decoded['student_name'] ?? decoded['name'] ?? decoded['username'] ?? decoded['email'] ?? '') as String;
+        return true;
+      }
+    } catch (e) {
+      // Ignore errors on load
+    }
+    return false;
+  }
+
+  Future<void> clear() async {
     _userId   = '';
     _userName = '';
+    _userData = {};
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_data');
   }
 }
 
@@ -111,7 +142,9 @@ class AuthService {
         AuthSession.instance._set(
           userId  : studentId,
           userName: studentName,
+          userData: decoded,
         );
+        await AuthSession.instance.saveSession();
 
         return const LoginResult.ok();
       } else {
@@ -130,5 +163,10 @@ class AuthService {
     } finally {
       client.close();
     }
+  }
+
+  /// Logs out the user by clearing the stored session.
+  static Future<void> logout() async {
+    await AuthSession.instance.clear();
   }
 }

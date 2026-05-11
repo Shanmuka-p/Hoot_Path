@@ -1,6 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:hoot_path/lsrw_api_service.dart';
+import 'package:hoot_path/profilescreen.dart';
 import 'package:hoot_path/skill_detail_sheet.dart';
 import 'package:hoot_path/learning_path_screen.dart';
 import 'package:hoot_path/config/app_config.dart';
@@ -333,20 +335,30 @@ class _TopBar extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               // Avatar
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: kAppGreen,
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    'S',
-                    style: TextStyle(
-                      color: kWhite,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: kAppGreen,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'S',
+                      style: TextStyle(
+                        color: kWhite,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ),

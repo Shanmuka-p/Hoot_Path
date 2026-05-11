@@ -3,17 +3,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hoot_path/login_screen.dart';
 import 'package:hoot_path/views/onboarding_view.dart';
+import 'package:hoot_path/services/auth_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  bool isLoggedIn = await AuthSession.instance.loadSession();
+
   if(kIsWeb){
-    runApp(DevicePreview(builder: (context) => HootApp(),));
+    runApp(DevicePreview(builder: (context) => HootApp(isLoggedIn: isLoggedIn),));
   }else{
-    runApp(const HootApp());
+    runApp(HootApp(isLoggedIn: isLoggedIn));
   }
 }
 
 class HootApp extends StatelessWidget {
-  const HootApp({super.key});
+  final bool isLoggedIn;
+  const HootApp({super.key, this.isLoggedIn = false});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +30,7 @@ class HootApp extends StatelessWidget {
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: LoginScreen(),
+      home: isLoggedIn ? const HootHomePage() : const LoginScreen(),
     );
   }
 }
