@@ -11,6 +11,7 @@ import 'package:hoot_path/controllers/analytics_controller.dart';
 import 'package:hoot_path/views/skill_detail_sheet.dart';
 import 'package:hoot_path/views/learning_path_view.dart';
 import 'package:hoot_path/config/app_config.dart';
+import 'package:hoot_path/profilescreen.dart';
 
 // ─── Theme Colors ─────────────────────────────────────────────────────────────
 const kAppGreen = Color(0xFF008738);
@@ -258,13 +259,23 @@ class _TopBar extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 10),
-              Container(
-                width: 40, height: 40,
-                decoration: const BoxDecoration(color: kAppGreen, shape: BoxShape.circle),
-                child: const Center(
-                  child: Text(
-                    'S',
-                    style: TextStyle(color: kWhite, fontWeight: FontWeight.w700, fontSize: 16),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 40, height: 40,
+                  decoration: const BoxDecoration(color: kAppGreen, shape: BoxShape.circle),
+                  child: const Center(
+                    child: Text(
+                      'S',
+                      style: TextStyle(color: kWhite, fontWeight: FontWeight.w700, fontSize: 16),
+                    ),
                   ),
                 ),
               ),
