@@ -1,120 +1,113 @@
-# Hoot Path — Personalized English Learning Path
+# Hoot Path
 
-An AI-guided 30-day English learning path app for the HOOT platform.
-Flutter frontend + Node.js/Express backend + MongoDB Atlas.
+A comprehensive language and skill learning platform focusing on core **LSRW (Listening, Speaking, Reading, Writing)** skills. Hoot Path provides users with an engaging, gamified learning experience, complete with an AI Mentor, Leaderboards, and Daily Tips.
+
+![Hoot Path App](https://img.shields.io/badge/Platform-Flutter-blue) ![Hoot Path Backend](https://img.shields.io/badge/Backend-Node.js-green)
+
+## Architecture
+
+This project is structured as a monorepo containing:
+- **Frontend**: A cross-platform mobile and web application built with [Flutter](https://flutter.dev/).
+- **Backend**: A RESTful API built with [Node.js](https://nodejs.org/) and [Express](https://expressjs.com/), utilizing [MongoDB](https://www.mongodb.com/) for data persistence.
+
+---
+
+## Frontend (`/frontend`)
+
+The frontend application provides a sleek, interactive user interface designed to facilitate daily learning habits.
+
+### Key Features
+- **Skill Modules**: Dedicated interactive sections for Listening, Speaking, Reading, and Writing.
+- **HOOT AI Mentor**: An intelligent companion that guides users through onboarding and tracks daily learning streaks.
+- **Leaderboard**: Competitive rankings based on user accuracy and attempt counts.
+- **Hoot Tips**: Actionable, bite-sized tips for specific skill improvement.
+- **Analytics & Progress**: Visual tracking of learning milestones.
+- **Cross-Platform**: Fully responsive design supporting Android, iOS, and Web.
+
+### Tech Stack
+- **Framework**: Flutter (Dart)
+- **Key Packages**:
+  - `http`: For robust API communication with the backend.
+  - `shared_preferences`: For local session and state management.
+  - `device_preview`: For seamless UI testing across various device sizes.
+
+### Getting Started (Frontend)
+1. Ensure you have the [Flutter SDK](https://docs.flutter.dev/get-started/install) installed.
+2. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+3. Fetch dependencies:
+   ```bash
+   flutter pub get
+   ```
+4. Run the application:
+   ```bash
+   flutter run
+   ```
+
+---
+
+## Backend (`/backend`)
+
+The backend is a robust Node.js server handling data management, user progress tracking, and AI-driven learning path generation.
+
+### Tech Stack
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **Database**: MongoDB (via Mongoose ODM)
+- **Utilities**: `cors` (Cross-Origin Resource Sharing), `dotenv` (Environment management).
+
+### Getting Started (Backend)
+1. Ensure you have [Node.js](https://nodejs.org/) installed.
+2. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Configure Environment Variables:
+   - Create a `.env` file based on `.env.example`.
+   - Provide your `MONGO_URI` and any necessary API keys (e.g., OpenRouter AI keys).
+5. Start the server:
+   ```bash
+   npm start
+   ```
+   *The server will typically run on `http://localhost:5001`.*
 
 ---
 
 ## Project Structure
 
-```
+```text
 Hoot_Path/
-│
-├── 📁 config/
-│   └── db.js                        # MongoDB connection
-│
-├── 📁 models/
-│   └── LearningPath.js              # Mongoose schema for the 30-day path
-│
-├── 📁 routes/
-│   └── learningPath.routes.js       # Express route handlers (HTTP layer only)
-│
-├── 📁 services/
-│   └── pathGenerator.service.js     # 4-layer personalization condition engine
-│
-├── server.js                        # Entry point — mounts routes, starts server
-├── package.json
-├── render.yaml                      # Render deployment config (no secrets)
-├── .env.example                     # Documents required environment variables
-│
-└── 📁 lib/  (Flutter)
-    ├── 📁 config/
-    │   └── app_config.dart          # Centralized constants (API URLs, user ID)
-    │
-    ├── lsrw_api_service.dart        # LSRW analytics API client + data models
-    ├── learning_path_service.dart   # Hoot-Path backend API client
-    │
-    ├── analytics_screen.dart        # Dashboard: LSRW donut + skill cards
-    ├── skill_detail_sheet.dart      # Bottom sheet: sub-module detail view
-    ├── learning_path_screen.dart    # 30-day timeline + generating state
-    └── day_task_screen.dart         # Individual day task viewer
+├── backend/                  # Node.js & Express API Server
+│   ├── config/               # Database connections and configs (db.js)
+│   ├── controllers/          # API route request handlers
+│   ├── models/               # MongoDB schemas (Mongoose)
+│   ├── routes/               # API endpoint definitions
+│   ├── services/             # Core business logic (OpenRouter, PathGenerator)
+│   ├── server.js             # Application entry point
+│   └── package.json          # Node dependencies
+└── frontend/                 # Flutter Application
+    ├── assets/               # Static assets (images, onboarding screens)
+    ├── lib/                  # Dart source code
+    │   ├── config/           # App-wide configuration files
+    │   ├── controllers/      # UI state and business logic bindings
+    │   ├── models/           # Data models representing API responses
+    │   ├── services/         # API wrappers and local storage services
+    │   ├── views/            # UI screens (Home, Analytics, Learning Path)
+    │   └── main.dart         # Flutter application entry point
+    ├── pubspec.yaml          # Flutter dependencies
+    └── test/                 # Widget and unit tests
 ```
 
 ---
 
-## Technologies Used
-
-| Layer | Technology |
-|---|---|
-| Mobile Frontend | Flutter (Dart) |
-| Backend | Node.js + Express |
-| Database | MongoDB Atlas (via Mongoose) |
-| Deployment | Render (Node web service) |
-| Analytics API | aihoot.in:5001 (external) |
-| Path generation | Rule-based condition engine (no external LLM) |
+## Contributions & Conventions
+- **Code Style**: The frontend utilizes `flutter_lints` to enforce Dart coding standards.
+- **Environment**: Never commit `.env` files or sensitive credentials.
 
 ---
-
-## Architecture
-
-```
-Flutter App
-  └─► LsrwApiService         → aihoot.in:5001   (LSRW accuracy data)
-  └─► LearningPathService     → hoot-path.onrender.com (30-day path)
-
-Node.js Server (Render)
-  ├─ routes/learningPath.routes.js   (HTTP request handling)
-  ├─ services/pathGenerator.service.js  (Personalization logic)
-  └─ models/LearningPath.js          (MongoDB persistence)
-```
-
----
-
-## Personalization Engine (4-Layer Condition System)
-
-The `generateSmartPath()` function in `services/pathGenerator.service.js` builds
-a 30-day plan using real LSRW API data, applying four condition layers:
-
-| Layer | Input | Condition | Output |
-|---|---|---|---|
-| 1 | Skill % | < 40 Critical / 40-60 Weak / 60-75 Moderate / 75-90 Good / ≥ 90 Strong | Scheduling priority (×1 to ×5) |
-| 2 | Module % + count | Never attempted → +30 score. Low % → high score | Module urgency score |
-| 3 | Module complexity | easy→Phase1 / medium→Phase2 / hard→Phase3 | Phase-based scheduling |
-| 4 | Skill tier | Critical→"Emergency Focus" / Strong→"Mastery Review" | Day focus label |
-
----
-
-## Environment Variables
-
-Set these in the **Render Dashboard → Environment** (not in `render.yaml`):
-
-| Variable | Description |
-|---|---|
-| `MONGO_URI` | MongoDB Atlas connection string |
-| `PORT` | Server port (Render sets this automatically) |
-
-Copy `.env.example` → `.env` for local development.
-
----
-
-## Known Issues / Technical Debt
-
-- **Hardcoded `kUserId`**: `lib/config/app_config.dart` — replace with dynamic
-  ID from an auth token once user authentication is implemented.
-- **No unit tests**: `test/widget_test.dart` is a placeholder. Service and
-  route logic should be covered by tests before production.
-- **Old file**: `lib/lsrw_api_service.dart.dart` (double extension) can be
-  deleted — all imports now point to `lib/lsrw_api_service.dart`.
-
----
-
-## Future Enhancements
-
-- **User Authentication**: Replace hardcoded `kUserId` with JWT-based login.
-- **LLM Integration**: `services/pathGenerator.service.js` is designed to be
-  swappable — the `generateSmartPath()` function can be replaced with an LLM
-  call (Gemini, Grok, OpenAI) when a reliable hosted endpoint is available.
-- **Spaced Repetition**: Introduce SM-2 algorithm for module revisit scheduling.
-- **Push Notifications**: Daily reminders tied to the active path's next day.
-- **Progress Analytics**: Dashboard showing completion rate trends over time.
-- **Offline Support**: Cache the active path locally for offline day viewing.
