@@ -395,7 +395,7 @@ class _HelloCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
                 Text(
-                  'Hello, Shannu! 👋',
+                  'Hello 👋',
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,

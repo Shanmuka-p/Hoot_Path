@@ -272,10 +272,7 @@ class _TopBar extends StatelessWidget {
                   width: 40, height: 40,
                   decoration: const BoxDecoration(color: kAppGreen, shape: BoxShape.circle),
                   child: const Center(
-                    child: Text(
-                      'S',
-                      style: TextStyle(color: kWhite, fontWeight: FontWeight.w700, fontSize: 16),
-                    ),
+                    child: Icon(Icons.person,size: 25,color: Colors.white,)
                   ),
                 ),
               ),
@@ -307,7 +304,7 @@ class _HelloCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
                 Text(
-                  'Hello, Shannu! 👋',
+                  'Hello 👋',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: kBlack),
                   overflow: TextOverflow.ellipsis,
                 ),

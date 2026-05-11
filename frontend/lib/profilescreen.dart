@@ -30,14 +30,7 @@ class ProfileScreen extends StatelessWidget {
     };
   }
 
-  String _getInitials(String name) {
-    if (name.trim().isEmpty) return '??';
-    List<String> names = name.trim().split(' ');
-    if (names.length >= 2) {
-      return '${names[0][0]}${names[names.length - 1][0]}'.toUpperCase();
-    }
-    return names[0].substring(0, names[0].length >= 2 ? 2 : 1).toUpperCase();
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -71,21 +64,10 @@ class ProfileScreen extends StatelessWidget {
                     painter: _WavyBorderPainter(),
                   ),
                   // "TH" Text
-                  Positioned(
-                    top: 16,
-                    left: 20,
-                    child: Text(
-                      _getInitials(_data['first_name'] ?? ''),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
+                  
                   // Profile Info
                   Positioned(
-                    top: 60,
+                    top: 70,
                     left: 30,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,10 +142,10 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   // Back button (optional but good for UX)
                   Positioned(
-                    top: 20,
+                    top: 30,
                     right: 16,
                     child: IconButton(
-                      icon: const Icon(Icons.close, color: Color.fromARGB(255, 0, 0, 0)),
+                      icon: const Icon(Icons.close, color: Color.fromARGB(255, 0, 0, 0),size: 30,),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
