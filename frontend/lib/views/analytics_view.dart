@@ -193,7 +193,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  _LearningPathCard(),
+                  _LearningPathCard(steps: _controller.upcomingSteps),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -510,6 +510,40 @@ class _SkillRow extends StatelessWidget {
 
 // ─── Learning Path Card ───────────────────────────────────────────────────────
 class _LearningPathCard extends StatelessWidget {
+  final List<PreviewStep> steps;
+
+  const _LearningPathCard({required this.steps});
+
+  Color _getSkillColor(String skill) {
+    switch (skill.toLowerCase()) {
+      case 'listening': return kListeningColor;
+      case 'speaking':  return kSpeakingColor;
+      case 'reading':   return kReadingColor;
+      case 'writing':   return kWritingColor;
+      default:          return kAppGreen;
+    }
+  }
+
+  Color _getSkillBg(String skill) {
+    switch (skill.toLowerCase()) {
+      case 'listening': return kListeningBg;
+      case 'speaking':  return kSpeakingBg;
+      case 'reading':   return kReadingBg;
+      case 'writing':   return kWritingBg;
+      default:          return kAppGreenBg;
+    }
+  }
+
+  IconData _getSkillIcon(String skill) {
+    switch (skill.toLowerCase()) {
+      case 'listening': return Icons.headphones_outlined;
+      case 'speaking':  return Icons.mic_outlined;
+      case 'reading':   return Icons.menu_book_outlined;
+      case 'writing':   return Icons.edit_outlined;
+      default:          return Icons.star_outline;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -536,16 +570,25 @@ class _LearningPathCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _PathStep(icon: Icons.mic_outlined, iconColor: kSpeakingColor, iconBg: kSpeakingBg, title: 'Speaking', subtitle: 'Basics', number: '7'),
-              _PathArrow(),
-              _PathStep(icon: Icons.edit_outlined, iconColor: kWritingColor, iconBg: kWritingBg, title: 'Writing', subtitle: 'Email Writing', number: '7'),
-              _PathArrow(),
-              _PathStep(icon: Icons.headphones_outlined, iconColor: kListeningColor, iconBg: kListeningBg, title: 'Listening', subtitle: 'Conversations', number: '7'),
-            ],
-          ),
+          if (steps.isEmpty)
+            const Text("Tap 'AI Mentor Path' below to generate your personalized learning path!", style: TextStyle(color: kTextGrey), textAlign: TextAlign.center)
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                for (int i = 0; i < steps.length; i++) ...[
+                  _PathStep(
+                    icon: _getSkillIcon(steps[i].skill),
+                    iconColor: _getSkillColor(steps[i].skill),
+                    iconBg: _getSkillBg(steps[i].skill),
+                    title: steps[i].skill,
+                    subtitle: steps[i].module,
+                    number: steps[i].count,
+                  ),
+                  if (i < steps.length - 1) _PathArrow(),
+                ],
+              ],
+            ),
         ],
       ),
     );

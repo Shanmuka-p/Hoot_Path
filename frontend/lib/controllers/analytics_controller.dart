@@ -17,6 +17,7 @@ class AnalyticsController extends ChangeNotifier {
   OverallLsrwData? overall;
   IndividualLsrwData? individual;
   String? llmInsight;
+  List<PreviewStep> upcomingSteps = [];
 
   final LsrwApiService _api;
   final LearningPathService _pathService;
@@ -37,9 +38,24 @@ class AnalyticsController extends ChangeNotifier {
       final results = await Future.wait([
         _api.fetchOverallData(),
         _api.fetchIndividualData(),
+        _pathService.checkExistingPath(kUserId),
       ]);
       overall    = results[0] as OverallLsrwData;
       individual = results[1] as IndividualLsrwData;
+      
+      final pathRes = results[2] as Map<String, dynamic>;
+      if (pathRes['exists'] == true) {
+        final List<dynamic> days = pathRes['path']['path'] ?? [];
+        final nextDay = days.firstWhere((d) => d['completed'] == false, orElse: () => null);
+        if (nextDay != null) {
+          final tasks = nextDay['tasks'] as List<dynamic>? ?? [];
+          upcomingSteps = tasks.take(3).map((t) => PreviewStep(
+            skill: t['skill']?.toString() ?? '',
+            module: t['module']?.toString() ?? '',
+            count: t['count']?.toString() ?? '1',
+          )).toList();
+        }
+      }
       
       final accuracyPayload = {
         "listening": overall?.listening?.percentage ?? 0,
@@ -75,4 +91,12 @@ class AnalyticsController extends ChangeNotifier {
   String insightText(OverallLsrwData data) {
     return llmInsight ?? 'Analyzing your performance to generate personalized insights...';
   }
+}
+
+class PreviewStep {
+  final String skill;
+  final String module;
+  final String count;
+
+  PreviewStep({required this.skill, required this.module, required this.count});
 }
