@@ -354,18 +354,6 @@ We welcome contributions! Please follow these steps:
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 👥 Authors
-
-- **Your Name** - _Initial work_ - [Your GitHub](https://github.com/yourusername)
-
----
-
 ## 🙏 Acknowledgments
 
 - OpenRouter for providing access to multiple LLM models
