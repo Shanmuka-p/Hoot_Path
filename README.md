@@ -13,7 +13,7 @@ A comprehensive language and skill learning platform focusing on core **LSRW (Li
 
 ## 🛑 Problem Statement
 
-Language learners often plateau because traditional educational apps provide generic, one-size-fits-all curricula. When a student struggles specifically with "Listening", a static app continues to assign equal weight to "Writing" and "Reading", leading to inefficient learning and frustration. There is a need for a dynamic system that continuously analyzes performance data and automatically adjusts the daily curriculum to target the student's weakest areas while maintaining proficiency in strong areas.
+The current version of the HooT app gives every student the exact same exercises for Listening, Speaking, Reading, and Writing regardless of their individual strengths and weaknesses. A student who scores 90% in Listening but only 30% in Writing receives the same exercise queue as every other student — the app has no mechanism to recognize this imbalance, no logic to redirect the student toward their weakest skill, and no insight into which specific sub-skills are the root cause of underperformance. Students plateau earlier than necessary because they are not being challenged in the right areas, engagement drops because practice feels repetitive and disconnected from personal progress, and the rich, granular performance data the HooT app already collects goes entirely unused for adapting the learning experience. HooT Path exists to close that gap.
 
 ## 💡 The Solution
 
@@ -108,10 +108,10 @@ sequenceDiagram
 
 ## 📱 Screenshots
 
-![Login Screen](image.png)
-![Onboarding](<WhatsApp Image 2026-05-12 at 15.18.03.jpeg>)
-![Skill Analysis](image-1.png)
-![Learning Path Dashboard](image-2.png)
+<img src="image.png" alt="Login Screen" width="300"/>
+<img src="WhatsApp Image 2026-05-12 at 15.18.03.jpeg" alt="Onboarding" width="300"/>
+<img src="image-1.png" alt="Skill Analysis" width="300"/>
+<img src="image-2.png" alt="Learning Path Dashboard" width="300"/>
 
 - **Login Screen:** Secure authentication interface.
 - **Onboarding:** Interactive setup process.
