@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hoot_path/analytics_screen.dart';
+import 'package:hoot_path/views/analytics_view.dart';
 
 // ─── Color Constants ──────────────────────────────────────────────────────────
 const kGreen = Color(0xFF2E7D32);

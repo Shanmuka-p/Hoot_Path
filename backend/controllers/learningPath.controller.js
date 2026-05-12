@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const LearningPath        = require('../models/LearningPath');
-const { generateWithFallback } = require('../services/openRouter.service');
+const { generateWithFallback, generateInsight } = require('../services/openRouter.service');
 
 // ── GET existing active path for a user ───────────────────────────────────────
 const getLearningPath = async (req, res) => {
@@ -92,4 +92,15 @@ const completeDay = async (req, res) => {
     }
 };
 
-module.exports = { getLearningPath, generateLearningPath, completeDay };
+// ── Generate Insight Text ────────────────────────────────────────────────────
+const generateInsightText = async (req, res) => {
+    try {
+        const { accuracy } = req.body;
+        const insight = await generateInsight(accuracy || {});
+        res.json({ insight });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+module.exports = { getLearningPath, generateLearningPath, completeDay, generateInsightText };

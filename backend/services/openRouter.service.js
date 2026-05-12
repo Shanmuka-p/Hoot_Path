@@ -247,7 +247,7 @@ function buildAlgorithmPath(accuracy, modules) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  OPENROUTER HTTP CALL
 // ─────────────────────────────────────────────────────────────────────────────
-async function callOpenRouter(prompt, apiKey, model) {
+async function callOpenRouter(prompt, apiKey, model, isJson = true) {
     const ctrl    = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 50000);
     try {
@@ -264,7 +264,7 @@ async function callOpenRouter(prompt, apiKey, model) {
                 messages: [
                     {
                         role:    'system',
-                        content: 'You are an expert English language mentor. Return ONLY valid raw JSON arrays. No markdown, no code fences.',
+                        content: isJson ? 'You are an expert English language mentor. Return ONLY valid raw JSON arrays. No markdown, no code fences.' : 'You are an expert English language mentor.',
                     },
                     { role: 'user', content: prompt },
                 ],
@@ -387,5 +387,39 @@ async function generateWithFallback(accuracy) {
     return { path: safetyPath, model: 'algorithm-fallback' };
 }
 
-module.exports = { generateWithFallback };
-module.exports = { generateWithFallback };
+async function generateInsight(accuracy) {
+    const keys = collectApiKeys();
+    const fallbackText = "Keep practicing! Review your weak areas to improve your communication skills.";
+    if (keys.length === 0) return fallbackText;
+
+    const models = process.env.OPENROUTER_MODELS
+        ? process.env.OPENROUTER_MODELS.split(',').map(m => m.trim()).filter(Boolean)
+        : DEFAULT_MODELS;
+
+    const l = parseFloat(accuracy?.listening) || 0;
+    const s = parseFloat(accuracy?.speaking)  || 0;
+    const r = parseFloat(accuracy?.reading)   || 0;
+    const w = parseFloat(accuracy?.writing)   || 0;
+
+    const prompt = `You are an expert English language mentor. Analyze the student's real performance data and provide a short, motivating, and highly specific 1-2 sentence insight about what they should focus on based on their weakest areas.
+Listening: ${l}%
+Speaking: ${s}%
+Reading: ${r}%
+Writing: ${w}%
+
+Return ONLY the insight text, without quotes or additional commentary.`;
+
+    for (const key of keys) {
+        for (const model of models) {
+            try {
+                const raw = await callOpenRouter(prompt, key, model, false);
+                if (raw) return raw.trim().replace(/^"|"$/g, '');
+            } catch (err) {
+                continue;
+            }
+        }
+    }
+    return fallbackText;
+}
+
+module.exports = { generateWithFallback, generateInsight };

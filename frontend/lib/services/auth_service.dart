@@ -89,7 +89,7 @@ class AuthService {
   static http.Client _buildClient() {
     final httpClient = HttpClient()
       ..badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
+          (X509Certificate cert, String host, int port) => host == 'aihoot.in';
     return IOClient(httpClient);
   }
 

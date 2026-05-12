@@ -17,4 +17,7 @@ router.post('/generate-learning-path', controller.generateLearningPath);
 // ── Mark a day as completed ───────────────────────────────────────────────────
 router.post('/complete-day', controller.completeDay);
 
+// ── Generate AI insight ───────────────────────────────────────────────────────
+router.post('/generate-insight', controller.generateInsightText);
+
 module.exports = router;

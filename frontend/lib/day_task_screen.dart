@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'learning_path_service.dart';
+import 'package:hoot_path/services/learning_path_service.dart';
 
 class DayTaskScreen extends StatefulWidget {
   final String userId;

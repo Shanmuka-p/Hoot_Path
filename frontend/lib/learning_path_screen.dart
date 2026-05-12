@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'learning_path_service.dart';
+import 'package:hoot_path/services/learning_path_service.dart';
 import 'day_task_screen.dart';
 
 class LearningPathScreen extends StatefulWidget {

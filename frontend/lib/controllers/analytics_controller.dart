@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:hoot_path/models/lsrw_models.dart';
 import 'package:hoot_path/services/lsrw_api_service.dart';
+import 'package:hoot_path/services/learning_path_service.dart';
 import 'package:hoot_path/config/app_config.dart';
 
 class AnalyticsController extends ChangeNotifier {
@@ -15,10 +16,14 @@ class AnalyticsController extends ChangeNotifier {
   String? error;
   OverallLsrwData? overall;
   IndividualLsrwData? individual;
+  String? llmInsight;
 
   final LsrwApiService _api;
+  final LearningPathService _pathService;
 
-  AnalyticsController() : _api = LsrwApiService(userId: kUserId) {
+  AnalyticsController() 
+      : _api = LsrwApiService(userId: kUserId),
+        _pathService = LearningPathService() {
     loadData();
   }
 
@@ -35,6 +40,14 @@ class AnalyticsController extends ChangeNotifier {
       ]);
       overall    = results[0] as OverallLsrwData;
       individual = results[1] as IndividualLsrwData;
+      
+      final accuracyPayload = {
+        "listening": overall?.listening?.percentage ?? 0,
+        "speaking": overall?.speaking?.percentage ?? 0,
+        "reading": overall?.reading?.percentage ?? 0,
+        "writing": overall?.writing?.percentage ?? 0,
+      };
+      llmInsight = await _pathService.generateInsight(accuracyPayload);
     } catch (e) {
       error = e.toString();
     } finally {
@@ -60,21 +73,6 @@ class AnalyticsController extends ChangeNotifier {
   }
 
   String insightText(OverallLsrwData data) {
-    final skills = <String, double>{
-      'Listening': data.listening?.percentage ?? 0,
-      'Speaking':  data.speaking?.percentage  ?? 0,
-      'Reading':   data.reading?.percentage   ?? 0,
-      'Writing':   data.writing?.percentage   ?? 0,
-    };
-    final weakest = skills.entries.reduce((a, b) => a.value < b.value ? a : b);
-    final secondWeakest = _secondWeakest(skills, weakest.key);
-    return 'Focus more on ${weakest.key} and $secondWeakest '
-        'to improve your overall communication skills.';
-  }
-
-  String _secondWeakest(Map<String, double> skills, String weakestKey) {
-    final others = skills.entries.where((e) => e.key != weakestKey).toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-    return others.first.key;
+    return llmInsight ?? 'Analyzing your performance to generate personalized insights...';
   }
 }

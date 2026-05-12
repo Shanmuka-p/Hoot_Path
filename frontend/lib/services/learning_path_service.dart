@@ -91,4 +91,20 @@ class LearningPathService {
       throw Exception('Request timed out. Check your internet connection.');
     }
   }
+
+  Future<String> generateInsight(Map<String, dynamic> accuracyData) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/generate-insight'),
+            headers: {"Content-Type": "application/json"},
+            body: json.encode({"accuracy": accuracyData}),
+          )
+          .timeout(const Duration(seconds: 30));
+      final decoded = _handleResponse(response);
+      return decoded['insight'] ?? 'Keep practicing to improve your communication skills.';
+    } catch (_) {
+      return 'Keep practicing to improve your communication skills.';
+    }
+  }
 }
