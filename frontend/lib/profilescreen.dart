@@ -69,6 +69,7 @@ class ProfileScreen extends StatelessWidget {
                   Positioned(
                     top: 70,
                     left: 30,
+                    right: 60, // leave space for the close button
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -96,46 +97,52 @@ class ProfileScreen extends StatelessWidget {
                               : null,
                         ),
                         const SizedBox(width: 20),
-                        // Text Details
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _data['first_name'] ?? 'N/A',
-                              style: const TextStyle(
-                                color: Color.fromARGB(255, 0, 0, 0),
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                        // Text Details — Expanded so name can wrap
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _data['first_name'] ?? 'N/A',
+                                softWrap: true,
+                                style: const TextStyle(
+                                  color: Color.fromARGB(255, 0, 0, 0),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _data['roll_no'] ?? 'N/A',
-                              style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
+                              const SizedBox(height: 2),
+                              Text(
+                                _data['roll_no'] ?? 'N/A',
+                                softWrap: true,
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _data['email'] ?? 'N/A',
-                              style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
+                              const SizedBox(height: 2),
+                              Text(
+                                _data['email'] ?? 'N/A',
+                                softWrap: true,
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '+91 ${_data['mobile'] ?? 'N/A'}',
-                              style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w400,
+                              const SizedBox(height: 2),
+                              Text(
+                                '+91 ${_data['mobile'] ?? 'N/A'}',
+                                softWrap: true,
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),

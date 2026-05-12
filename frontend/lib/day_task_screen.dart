@@ -128,9 +128,7 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
               children: [
                 Container(
                   width: double.infinity,
@@ -257,19 +255,28 @@ class _DayTaskScreenState extends State<DayTaskScreen> {
                 ),
               ],
             ),
-      bottomNavigationBar: widget.isToday && !_isLoading
-          ? Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFBB00),
-                  minimumSize: const Size.fromHeight(50),
-                ),
-                onPressed: _markComplete,
-                child: const Text('Mark Day Complete', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
-              ),
-            )
-          : null,
+      bottomNavigationBar: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: widget.isToday
+              ? _isLoading
+                  ? const SizedBox(
+                      height: 50,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF008738),
+                        ),
+                      ),
+                    )
+                  : ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFBB00),
+                        minimumSize: const Size.fromHeight(50),
+                      ),
+                      onPressed: _markComplete,
+                      child: const Text('Mark Day Complete', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                    )
+              : const SizedBox.shrink(),
+        ),
     );
   }
 }
